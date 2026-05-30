@@ -1,0 +1,60 @@
+### SIMPLE JOB WORKFLOW TEST
+
+### 1. LOGIN AS EMPLOYER
+
+post http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "employer@test.com",
+  "password": "123456"
+}
+
+### 2. CREATE JOB (Employer)
+POST http://localhost:5000/api/jobs
+Authorization: Bearer YOUR_EMPLOYER_TOKEN
+Content-Type: application/json
+
+{
+  "title": "React Developer",
+  "company": "Tech Corp",
+  "location": "Remote",
+  "type": "Full-time",
+  "salaryMin": 800000,
+  "salaryMax": 1200000,
+  "description": "Looking for React developer",
+  "requirements": "React, JavaScript",
+  "skills": "React,JavaScript,HTML,CSS",
+  "deadline": "2026-12-31"
+}
+
+### 3. LOGIN AS COLLEGE
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "college@test.com",
+  "password": "123456"
+}
+
+### 4. APPROVE JOB (College - use JOB_ID from step 2)
+PUT http://localhost:5000/api/jobs/JOB_ID_HERE/status
+Authorization: Bearer YOUR_COLLEGE_TOKEN
+Content-Type: application/json
+
+{
+  "status": "approved"
+}
+
+### 5. LOGIN AS STUDENT
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "student@test.com",
+  "password": "123456"
+}
+
+### 6. SEE APPROVED JOBS (Student)
+GET http://localhost:5000/api/jobs/approved
+Authorization: Bearer YOUR_STUDENT_TOKEN
