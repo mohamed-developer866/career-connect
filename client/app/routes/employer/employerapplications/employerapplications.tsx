@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router";
 
-
 export default function EmployerApplications() {
   const { user } = useOutletContext<any>();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -10,6 +9,7 @@ export default function EmployerApplications() {
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [viewingResume, setViewingResume] = useState<{ url: string; name: string } | null>(null);
 
   useEffect(() => {
     loadApplications();
@@ -23,23 +23,78 @@ export default function EmployerApplications() {
   const loadApplications = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/jobs/employer/applications", {
+      // Try multiple endpoints
+      let data = null;
+      let jobsList = [];
+      
+      // Try /api/jobs/employer/applications first
+      let res = await fetch("http://localhost:5000/api/jobs/employer/applications", {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       if (res.ok) {
-        const data = await res.json();
-        setJobs(data.jobs || []);
-        if (data.jobs?.length > 0 && !selectedJob) {
-          setSelectedJob(data.jobs[0]);
-          setShowDetail(true);
+        const result = await res.json();
+        jobsList = result.jobs || [];
+      } else {
+        // Fallback to /api/jobs/my-jobs
+        res = await fetch("http://localhost:5000/api/jobs/my-jobs", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const result = await res.json();
+          jobsList = result.jobs || [];
+          
+          // Load applications for each job
+          for (let job of jobsList) {
+            const appsRes = await fetch(`http://localhost:5000/api/applications/job/${job.id}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (appsRes.ok) {
+              const appsData = await appsRes.json();
+              job.applications = appsData.applications || [];
+            } else {
+              job.applications = [];
+            }
+          }
         }
+      }
+      
+      setJobs(jobsList);
+      if (jobsList.length > 0 && !selectedJob) {
+        setSelectedJob(jobsList[0]);
+        setShowDetail(true);
       }
     } catch (err) {
       console.error(err);
       showToast("Failed to load applications", "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const viewResume = async (applicationId: string, fileName: string) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5000/api/applications/${applicationId}/resume`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        
+        // Open PDF in new tab
+        window.open(url, '_blank');
+        
+        // Also provide download option
+        setViewingResume({ url, name: fileName || 'resume.pdf' });
+        showToast("Resume opened in new tab", "success");
+      } else {
+        showToast("Failed to load resume", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Error loading resume", "error");
     }
   };
 
@@ -52,13 +107,13 @@ export default function EmployerApplications() {
       
       if (res.ok) {
         const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = fileName || 'resume.pdf';
         document.body.appendChild(a);
         a.click();
-        window.URL.revokeObjectURL(url);
+        URL.revokeObjectURL(url);
         document.body.removeChild(a);
         showToast("Resume downloaded successfully", "success");
       } else {
@@ -96,17 +151,27 @@ export default function EmployerApplications() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'HIRED': return 'bg-green-100 text-green-700';
-      case 'Shortlisted': return 'bg-blue-100 text-blue-700';
-      case 'Interview': return 'bg-purple-100 text-purple-700';
-      case 'Rejected': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'HIRED': return 'bg-green-100 text-green-700 border-green-200';
+      case 'Shortlisted': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'Interview': return 'bg-purple-100 text-purple-700 border-purple-200';
+      case 'Rejected': return 'bg-red-100 text-red-700 border-red-200';
+      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'HIRED': return '🎉';
+      case 'Shortlisted': return '⭐';
+      case 'Interview': return '🎯';
+      case 'Rejected': return '❌';
+      default: return '📝';
     }
   };
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50/30">
         <div className="flex gap-2">
           <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-bounce"></div>
           <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-bounce" style={{animationDelay: "0.15s"}}></div>
@@ -118,11 +183,10 @@ export default function EmployerApplications() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50/30">
-     
       
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-white border-b border-blue-100 px-6 py-4 flex-shrink-0">
+        <div className="bg-white border-b border-blue-100 px-6 py-4 flex-shrink-0 shadow-sm">
           <h1 className="text-xl font-bold text-blue-800">📋 Job Applications</h1>
           <p className="text-xs text-blue-500 mt-0.5">Manage candidates who applied to your jobs</p>
         </div>
@@ -130,7 +194,8 @@ export default function EmployerApplications() {
         {/* Toast */}
         {toast && (
           <div className="absolute top-4 right-4 z-50">
-            <div className={`px-4 py-3 rounded-xl shadow-lg ${toast.type === "success" ? "bg-green-500" : "bg-red-500"} text-white`}>
+            <div className={`px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 ${toast.type === "success" ? "bg-green-500" : "bg-red-500"} text-white`}>
+              <span>{toast.type === "success" ? "✅" : "⚠️"}</span>
               {toast.message}
             </div>
           </div>
@@ -148,13 +213,14 @@ export default function EmployerApplications() {
                 <div className="text-center py-8">
                   <span className="text-3xl mb-2 block">📭</span>
                   <p className="text-slate-500 text-sm">No jobs posted yet</p>
+                  <button className="mt-2 px-3 py-1 bg-blue-500 text-white text-xs rounded-lg">Post a Job</button>
                 </div>
               ) : (
                 jobs.map((job) => (
                   <div
                     key={job.id}
                     onClick={() => { setSelectedJob(job); setShowDetail(true); }}
-                    className={`p-3 rounded-lg cursor-pointer transition-all ${selectedJob?.id === job.id ? "bg-blue-50 border-l-4 border-blue-500" : "bg-white border border-gray-100 hover:shadow-sm"}`}
+                    className={`p-3 rounded-lg cursor-pointer transition-all ${selectedJob?.id === job.id ? "bg-blue-50 border-l-4 border-blue-500 shadow-sm" : "bg-white border border-gray-100 hover:shadow-sm"}`}
                   >
                     <p className="font-semibold text-sm text-slate-800">{job.title}</p>
                     <p className="text-xs text-slate-500 mt-0.5">{job.company}</p>
@@ -192,30 +258,31 @@ export default function EmployerApplications() {
                     <div className="text-center py-8">
                       <span className="text-3xl mb-2 block">👥</span>
                       <p className="text-slate-500 text-sm">No applications yet</p>
+                      <p className="text-slate-400 text-xs mt-1">Applications will appear here when students apply</p>
                     </div>
                   ) : (
                     selectedJob.applications.map((app: any) => (
                       <div key={app.id} className="border border-gray-100 rounded-lg p-4 hover:shadow-md transition-all">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
-                                {app.studentName?.charAt(0) || "S"}
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-md">
+                                {app.studentName?.charAt(0) || app.student?.fullName?.charAt(0) || "S"}
                               </div>
                               <div>
-                                <p className="font-semibold text-sm text-slate-800">{app.studentName}</p>
-                                <p className="text-xs text-slate-500">{app.studentEmail}</p>
+                                <p className="font-semibold text-sm text-slate-800">{app.studentName || app.student?.fullName}</p>
+                                <p className="text-xs text-slate-500">{app.studentEmail || app.student?.email}</p>
                               </div>
                             </div>
                             
                             <div className="grid grid-cols-2 gap-3 text-xs mt-3">
                               <div>
                                 <span className="text-slate-400">College:</span>
-                                <p className="text-slate-700 font-medium">{app.college || "N/A"}</p>
+                                <p className="text-slate-700 font-medium">{app.college || app.student?.college || "N/A"}</p>
                               </div>
                               <div>
                                 <span className="text-slate-400">Department:</span>
-                                <p className="text-slate-700 font-medium">{app.department || "N/A"}</p>
+                                <p className="text-slate-700 font-medium">{app.department || app.student?.department || "N/A"}</p>
                               </div>
                               <div>
                                 <span className="text-slate-400">Applied on:</span>
@@ -223,14 +290,14 @@ export default function EmployerApplications() {
                               </div>
                               <div>
                                 <span className="text-slate-400">Match Score:</span>
-                                <p className="text-blue-600 font-semibold">{app.matchScore}%</p>
+                                <p className="text-blue-600 font-semibold">{app.matchScore || 75}%</p>
                               </div>
                             </div>
                           </div>
                           
                           <div className="flex flex-col items-end gap-2">
-                            <span className={`text-[10px] px-2 py-1 rounded-full font-medium ${getStatusColor(app.status)}`}>
-                              {app.status}
+                            <span className={`text-[10px] px-2 py-1 rounded-full font-medium border ${getStatusColor(app.status)}`}>
+                              {getStatusIcon(app.status)} {app.status}
                             </span>
                             
                             <div className="flex gap-1 mt-2">
@@ -239,24 +306,52 @@ export default function EmployerApplications() {
                                 onChange={(e) => updateApplicationStatus(app.id, e.target.value)}
                                 className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                               >
-                                <option value="Applied">Applied</option>
-                                <option value="Shortlisted">Shortlisted</option>
-                                <option value="Interview">Interview</option>
-                                <option value="HIRED">HIRED</option>
-                                <option value="Rejected">Rejected</option>
+                                <option value="Applied">📝 Applied</option>
+                                <option value="Shortlisted">⭐ Shortlisted</option>
+                                <option value="Interview">🎯 Interview</option>
+                                <option value="HIRED">✅ HIRED</option>
+                                <option value="Rejected">❌ Rejected</option>
                               </select>
                               
                               {app.resume && (
-                                <button
-                                  onClick={() => downloadResume(app.id, app.resumeFileName || "resume.pdf")}
-                                  className="px-2 py-1 bg-blue-500 text-white text-[10px] rounded-lg hover:bg-blue-600 transition"
-                                >
-                                  📄 Resume
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => viewResume(app.id, app.resumeFileName || "resume.pdf")}
+                                    className="px-2 py-1 bg-green-500 text-white text-[10px] rounded-lg hover:bg-green-600 transition flex items-center gap-1"
+                                    title="View Resume"
+                                  >
+                                    👁️ View
+                                  </button>
+                                  <button
+                                    onClick={() => downloadResume(app.id, app.resumeFileName || "resume.pdf")}
+                                    className="px-2 py-1 bg-blue-500 text-white text-[10px] rounded-lg hover:bg-blue-600 transition flex items-center gap-1"
+                                    title="Download Resume"
+                                  >
+                                    📥 Download
+                                  </button>
+                                </>
                               )}
                             </div>
                           </div>
                         </div>
+                        
+                        {/* Skills Preview */}
+                        {app.student?.skills && app.student.skills.length > 0 && (
+                          <div className="mt-3 pt-2 border-t border-gray-100">
+                            <div className="flex flex-wrap gap-1">
+                              {app.student.skills.slice(0, 4).map((skill: any) => (
+                                <span key={skill.id} className="text-[9px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                                  {skill.name}
+                                </span>
+                              ))}
+                              {app.student.skills.length > 4 && (
+                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">
+                                  +{app.student.skills.length - 4}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))
                   )}
@@ -266,6 +361,30 @@ export default function EmployerApplications() {
           </div>
         </div>
       </main>
+
+      {/* Resume Viewer Modal (Optional) */}
+      {viewingResume && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => {
+          URL.revokeObjectURL(viewingResume.url);
+          setViewingResume(null);
+        }}>
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="font-semibold">{viewingResume.name}</h3>
+              <button onClick={() => {
+                URL.revokeObjectURL(viewingResume.url);
+                setViewingResume(null);
+              }} className="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+            <iframe src={viewingResume.url} className="w-full h-[70vh]" title="Resume Viewer" />
+            <div className="p-3 border-t flex justify-end">
+              <a href={viewingResume.url} download={viewingResume.name} className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">
+                Download Resume
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

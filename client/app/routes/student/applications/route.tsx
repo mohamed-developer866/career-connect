@@ -2,23 +2,32 @@ import { useState, useEffect } from "react";
 import { useOutletContext, useNavigate } from "react-router";
 import Sidebar from "../../../components/Sidebar";
 
-const statusSteps = ["Applied", "Shortlisted", "Interview", "Hired"];
+const statusSteps = ["Applied", "Shortlisted", "Interview", "HIRED"]; // Changed to match backend
 const statusColor = (s: string) => {
-  const status = s || "Applied";
-  if (status === "Shortlisted") return "bg-amber-100 text-amber-700 border-amber-200";
-  if (status === "Interview") return "bg-purple-100 text-purple-700 border-purple-200";
-  if (status === "Hired") return "bg-emerald-100 text-emerald-700 border-emerald-200";
-  if (status === "Rejected") return "bg-red-100 text-red-700 border-red-200";
+  const status = (s || "Applied").toUpperCase();
+  if (status === "SHORTLISTED") return "bg-amber-100 text-amber-700 border-amber-200";
+  if (status === "INTERVIEW") return "bg-purple-100 text-purple-700 border-purple-200";
+  if (status === "HIRED") return "bg-emerald-100 text-emerald-700 border-emerald-200";
+  if (status === "REJECTED") return "bg-red-100 text-red-700 border-red-200";
   return "bg-blue-100 text-blue-700 border-blue-200";
 };
 
 const statusDot = (s: string) => {
-  const status = s || "Applied";
-  if (status === "Shortlisted") return "🟡";
-  if (status === "Interview") return "🟣";
-  if (status === "Hired") return "🟢";
-  if (status === "Rejected") return "🔴";
-  return "🔵";
+  const status = (s || "Applied").toUpperCase();
+  if (status === "SHORTLISTED") return "⭐";
+  if (status === "INTERVIEW") return "🎯";
+  if (status === "HIRED") return "✅";
+  if (status === "REJECTED") return "❌";
+  return "📝";
+};
+
+const getDisplayStatus = (status: string) => {
+  const s = (status || "Applied").toUpperCase();
+  if (s === "HIRED") return "Hired";
+  if (s === "SHORTLISTED") return "Shortlisted";
+  if (s === "INTERVIEW") return "Interview";
+  if (s === "REJECTED") return "Rejected";
+  return "Applied";
 };
 
 export default function MyApplications() {
@@ -45,7 +54,6 @@ export default function MyApplications() {
       
       if (res.ok) {
         const data = await res.json();
-        // Handle both response formats
         let appsList = [];
         if (data.applications && Array.isArray(data.applications)) {
           appsList = data.applications;
@@ -72,7 +80,8 @@ export default function MyApplications() {
   };
 
   const getStatusIndex = (status: string) => {
-    const index = statusSteps.indexOf(status);
+    const upperStatus = (status || "Applied").toUpperCase();
+    const index = statusSteps.findIndex(s => s.toUpperCase() === upperStatus);
     return index !== -1 ? index : 0;
   };
 
@@ -193,6 +202,8 @@ export default function MyApplications() {
                   const isSelected = selectedApp?.id === app.id;
                   const status = app.status || "Applied";
                   const statusInfo = statusColor(status);
+                  const displayStatus = getDisplayStatus(status);
+                  const statusIcon = statusDot(status);
                   
                   return (
                     <div 
@@ -215,7 +226,7 @@ export default function MyApplications() {
                           </p>
                         </div>
                         <span className={`text-[9px] font-medium px-2 py-0.5 rounded-full border ${statusInfo} ml-2 shrink-0`}>
-                          {statusDot(status)} {status}
+                          {statusIcon} {displayStatus}
                         </span>
                       </div>
                       <p className="text-[10px] text-slate-400">
@@ -245,7 +256,7 @@ export default function MyApplications() {
                           </p>
                         </div>
                         <span className={`text-sm font-semibold px-4 py-1.5 rounded-full border ${statusColor(selectedApp.status || "Applied")}`}>
-                          {statusDot(selectedApp.status || "Applied")} {selectedApp.status || "Applied"}
+                          {statusDot(selectedApp.status || "Applied")} {getDisplayStatus(selectedApp.status || "Applied")}
                         </span>
                       </div>
                     </div>
@@ -256,32 +267,32 @@ export default function MyApplications() {
                         <h3 className="text-sm font-semibold text-slate-700 mb-4">Application Progress</h3>
                         <div className="flex items-center justify-between">
                           {statusSteps.map((step, i) => {
-                            const currentStatus = selectedApp.status || "Applied";
-                            const currentIdx = getStatusIndex(currentStatus);
-                            const isCompleted = i <= currentIdx && currentStatus !== "Rejected";
-                            const isCurrent = statusSteps[i] === currentStatus;
-                            const isRejected = currentStatus === "Rejected" && i === 0;
+                            const currentStatus = (selectedApp.status || "Applied").toUpperCase();
+                            const currentIdx = getStatusIndex(selectedApp.status || "Applied");
+                            const isCompleted = i <= currentIdx && currentStatus !== "REJECTED";
+                            const isCurrent = statusSteps[i].toUpperCase() === currentStatus;
+                            const isRejected = currentStatus === "REJECTED";
                             
                             return (
                               <div key={step} className="flex items-center flex-1">
                                 <div className="flex flex-col items-center flex-1">
                                   <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                                    isRejected ? "bg-red-500 text-white shadow-md" :
+                                    isRejected && i === 0 ? "bg-red-500 text-white shadow-md" :
                                     isCompleted ? "bg-emerald-500 text-white shadow-md" :
-                                    isCurrent ? "bg-emerald-500 text-white ring-4 ring-emerald-200" :
+                                    isCurrent && !isRejected ? "bg-emerald-500 text-white ring-4 ring-emerald-200" :
                                     "bg-slate-100 text-slate-400"
                                   }`}>
-                                    {isRejected ? "✗" : isCompleted ? "✓" : i + 1}
+                                    {isRejected && i === 0 ? "✗" : isCompleted ? "✓" : i + 1}
                                   </div>
                                   <span className={`text-[9px] mt-1.5 font-medium ${
-                                    isCompleted || isCurrent ? "text-emerald-600" : "text-slate-400"
+                                    isCompleted || (isCurrent && !isRejected) ? "text-emerald-600" : "text-slate-400"
                                   }`}>
                                     {step}
                                   </span>
                                 </div>
                                 {i < statusSteps.length - 1 && (
                                   <div className={`flex-1 h-1 mx-2 rounded-full ${
-                                    i < currentIdx && currentStatus !== "Rejected" ? "bg-emerald-500" : "bg-slate-100"
+                                    i < currentIdx && currentStatus !== "REJECTED" ? "bg-emerald-500" : "bg-slate-100"
                                   }`}></div>
                                 )}
                               </div>
@@ -332,7 +343,7 @@ export default function MyApplications() {
                       )}
 
                       {/* Rejected Message */}
-                      {selectedApp.status === "Rejected" && (
+                      {(selectedApp.status === "Rejected" || selectedApp.status === "REJECTED") && (
                         <div className="bg-rose-50 border border-rose-200 rounded-lg p-4 text-center">
                           <span className="text-2xl block mb-1">😔</span>
                           <p className="text-sm font-semibold text-rose-700">Application Not Selected</p>
@@ -341,7 +352,7 @@ export default function MyApplications() {
                       )}
 
                       {/* Hired Message */}
-                      {selectedApp.status === "Hired" && (
+                      {(selectedApp.status === "Hired" || selectedApp.status === "HIRED") && (
                         <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-center">
                           <span className="text-2xl block mb-1">🎉</span>
                           <p className="text-sm font-semibold text-emerald-700">Congratulations! You're Hired!</p>
@@ -350,11 +361,20 @@ export default function MyApplications() {
                       )}
 
                       {/* Interview Message */}
-                      {selectedApp.status === "Interview" && (
+                      {(selectedApp.status === "Interview" || selectedApp.status === "INTERVIEW") && (
                         <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
                           <span className="text-2xl block mb-1">🎯</span>
                           <p className="text-sm font-semibold text-purple-700">Interview Scheduled!</p>
                           <p className="text-xs text-purple-600 mt-1">Check your email for interview details.</p>
+                        </div>
+                      )}
+
+                      {/* Shortlisted Message */}
+                      {(selectedApp.status === "Shortlisted" || selectedApp.status === "SHORTLISTED") && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
+                          <span className="text-2xl block mb-1">⭐</span>
+                          <p className="text-sm font-semibold text-amber-700">Congratulations! You're Shortlisted!</p>
+                          <p className="text-xs text-amber-600 mt-1">The employer will contact you for the next round.</p>
                         </div>
                       )}
                     </div>

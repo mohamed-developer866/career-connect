@@ -34,6 +34,7 @@ export default function Analytics() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [timeRange, setTimeRange] = useState<"week" | "month" | "year">("week");
   const [loading, setLoading] = useState(true);
+  const [selectedMetric, setSelectedMetric] = useState<"progress" | "tasks" | "score">("progress");
   
   const [stats, setStats] = useState({
     streak: 0,
@@ -48,6 +49,8 @@ export default function Analytics() {
   const [activities, setActivities] = useState<any[]>([]);
   const [performanceLabels, setPerformanceLabels] = useState<string[]>([]);
   const [performanceData, setPerformanceData] = useState<number[]>([]);
+  const [taskData, setTaskData] = useState<number[]>([]);
+  const [scoreData, setScoreData] = useState<number[]>([]);
 
   useEffect(() => {
     fetchAnalyticsData();
@@ -55,26 +58,22 @@ export default function Analytics() {
 
   const fetchAnalyticsData = async () => {
     const token = localStorage.getItem("token");
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    
     setLoading(true);
     
     try {
-      const statsRes = await fetch("http://localhost:5000/api/dashboard/stats", {
+      const statsRes = await fetch("http://localhost:5000/api/analytics/stats", {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (statsRes.ok) {
         const data = await statsRes.json();
+        const statsData = data.stats || data;
         setStats({
-          streak: data.streak || 25,
-          consistency: data.consistency || 85,
-          procredits: data.procredits || 2450,
-          skillsCount: data.skillsCount || 10,
-          coursesCount: data.coursesCount || 3,
-          applicationsCount: data.applicationsCount || 5,
+          streak: statsData.streak || 25,
+          consistency: statsData.consistency || 85,
+          procredits: statsData.procredits || 2450,
+          skillsCount: statsData.skillsCount || 8,
+          coursesCount: statsData.coursesCount || 4,
+          applicationsCount: statsData.applicationsCount || 6,
         });
       }
       
@@ -83,109 +82,201 @@ export default function Analytics() {
       });
       if (skillsRes.ok) {
         const data = await skillsRes.json();
-        setSkills(data.skills || []);
-      } else {
-        setSkills([
-          { name: "React.js", progress: 88, level: "Advanced", color: "#f97316" },
-          { name: "JavaScript", progress: 82, level: "Advanced", color: "#fb923c" },
-          { name: "Python", progress: 92, level: "Advanced", color: "#f59e0b" },
-        ]);
+        const skillsData = data.skills || (data.success ? data.skills : data);
+        if (skillsData && skillsData.length > 0) {
+          setSkills(skillsData);
+        } else {
+          setSkills([
+            { name: "React.js", progress: 88, level: "Advanced" },
+            { name: "JavaScript", progress: 82, level: "Advanced" },
+            { name: "Python", progress: 92, level: "Advanced" },
+            { name: "Node.js", progress: 75, level: "Intermediate" },
+            { name: "MongoDB", progress: 68, level: "Intermediate" },
+          ]);
+        }
       }
       
-      const activitiesRes = await fetch("http://localhost:5000/api/analytics/activities", {
+      const activitiesRes = await fetch("http://localhost:5000/api/analytics/activities?limit=5", {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (activitiesRes.ok) {
         const data = await activitiesRes.json();
-        setActivities(data.activities || []);
+        const activitiesData = data.activities || (data.success ? data.activities : data);
+        if (activitiesData && activitiesData.length > 0) {
+          setActivities(activitiesData);
+        } else {
+          setActivities([
+            { activity: "Completed React Hooks Module", credits: "+50", date: new Date().toISOString(), type: "course" },
+            { activity: "JavaScript Advanced Quiz", credits: "+30", date: new Date(Date.now() - 86400000).toISOString(), type: "quiz" },
+            { activity: "Applied for Frontend Developer", credits: "+20", date: new Date(Date.now() - 172800000).toISOString(), type: "job" },
+          ]);
+        }
       }
       
-      const perfRes = await fetch(`http://localhost:5000/api/analytics/performance?range=${timeRange}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (perfRes.ok) {
-        const data = await perfRes.json();
-        setPerformanceLabels(data.labels || []);
-        setPerformanceData(data.data || []);
+      if (timeRange === "week") {
+        setPerformanceLabels(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+        setPerformanceData([65, 68, 72, 70, 78, 82, 85]);
+        setTaskData([3, 4, 2, 5, 4, 6, 5]);
+        setScoreData([72, 75, 78, 74, 82, 85, 88]);
+      } else if (timeRange === "month") {
+        setPerformanceLabels(['W1', 'W2', 'W3', 'W4']);
+        setPerformanceData([62, 68, 73, 85]);
+        setTaskData([12, 15, 18, 24]);
+        setScoreData([68, 72, 78, 86]);
+      } else {
+        setPerformanceLabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']);
+        setPerformanceData([58, 62, 65, 63, 70, 75, 78, 76, 82, 85, 88, 92]);
+        setTaskData([8, 10, 12, 11, 15, 18, 20, 19, 22, 25, 28, 32]);
+        setScoreData([62, 65, 68, 67, 72, 76, 78, 77, 82, 85, 87, 90]);
       }
       
     } catch (err) {
-      console.error("Error fetching analytics:", err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
+  const getCurrentData = () => {
+    switch(selectedMetric) {
+      case "tasks": return taskData;
+      case "score": return scoreData;
+      default: return performanceData;
+    }
+  };
+
+  const getCurrentLabel = () => {
+    switch(selectedMetric) {
+      case "tasks": return "Tasks Completed";
+      case "score": return "Quiz Scores";
+      default: return "Learning Progress";
+    }
+  };
+
+  const getCurrentUnit = () => {
+    switch(selectedMetric) {
+      case "tasks": return "";
+      case "score": return "%";
+      default: return "%";
+    }
+  };
+
+  const getCurrentColor = () => {
+    switch(selectedMetric) {
+      case "tasks": return "#f59e0b";
+      case "score": return "#fb923c";
+      default: return "#f97316";
+    }
+  };
+
+  const currentData = getCurrentData();
+  const avgValue = Math.round(currentData.reduce((a, b) => a + b, 0) / currentData.length);
+  const improvement = currentData[currentData.length - 1] - currentData[0];
+
   const skillsChartData = {
-    labels: skills.map(s => s.name),
+    labels: skills.slice(0, 5).map(s => s.name),
     datasets: [{
-      label: 'Proficiency Score (%)',
-      data: skills.map(s => s.progress),
-      backgroundColor: ['#f97316', '#fb923c', '#f59e0b', '#fdba74', '#fed7aa', '#ffedd5'],
+      label: 'Proficiency (%)',
+      data: skills.slice(0, 5).map(s => s.progress),
+      backgroundColor: ['#f97316', '#fb923c', '#f59e0b', '#fdba74', '#fed7aa'],
       borderRadius: 8,
-      barPercentage: 0.7,
+      barPercentage: 0.65,
     }],
   };
 
   const performanceChartData = {
     labels: performanceLabels,
     datasets: [{
-      label: 'Learning Progress',
-      data: performanceData,
-      borderColor: '#f97316',
-      backgroundColor: 'rgba(249, 115, 22, 0.1)',
+      label: getCurrentLabel(),
+      data: currentData,
+      borderColor: getCurrentColor(),
+      backgroundColor: `rgba(249, 115, 22, 0.08)`,
       borderWidth: 2.5,
-      pointBackgroundColor: '#f59e0b',
+      pointBackgroundColor: getCurrentColor(),
       pointBorderColor: '#fff',
       pointBorderWidth: 2,
-      pointRadius: 3,
-      pointHoverRadius: 5,
-      tension: 0.4,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      tension: 0.3,
       fill: true,
     }],
   };
 
-  const activityData = {
-    labels: ['Courses', 'Assessments', 'Practice', 'Applications'],
-    datasets: [{
-      data: [
-        activities.filter(a => a.type === 'course').length || 3,
-        activities.filter(a => a.type === 'quiz').length || 5,
-        activities.filter(a => a.type === 'practice').length || 8,
-        activities.filter(a => a.type === 'job').length || 2,
-      ],
-      backgroundColor: ['#f97316', '#fb923c', '#f59e0b', '#fdba74'],
-      borderColor: 'white',
-      borderWidth: 2,
-    }],
+  const activityCounts = {
+    courses: activities.filter(a => a.type === 'course').length || 3,
+    quizzes: activities.filter(a => a.type === 'quiz').length || 4,
+    jobs: activities.filter(a => a.type === 'job').length || 2,
   };
 
-  const statsCards = [
-    { title: "Learning Streak", value: `${stats.streak} days`, icon: "🔥", color: "#f97316", bg: "#fff7ed" },
-    { title: "Skills Mastered", value: stats.skillsCount.toString(), icon: "⭐", color: "#f59e0b", bg: "#fffbeb" },
-    { title: "Courses Enrolled", value: stats.coursesCount.toString(), icon: "📚", color: "#f97316", bg: "#fff7ed" },
-    { title: "Avg Score", value: `${stats.consistency}%`, icon: "📈", color: "#f59e0b", bg: "#fffbeb" },
-    { title: "ProCredits", value: stats.procredits.toLocaleString(), icon: "💰", color: "#f97316", bg: "#fff7ed" },
-    { title: "Applications", value: stats.applicationsCount.toString(), icon: "🏆", color: "#f59e0b", bg: "#fffbeb" },
-  ];
+  const activityData = {
+    labels: ['Courses', 'Quizzes', 'Jobs'],
+    datasets: [{
+      data: [activityCounts.courses, activityCounts.quizzes, activityCounts.jobs],
+      backgroundColor: ['#f97316', '#f59e0b', '#fdba74'],
+      borderWidth: 0,
+    }],
+  };
 
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'top' as const, labels: { font: { size: 11, family: "'Inter', sans-serif" } } },
-      tooltip: { backgroundColor: 'rgba(0,0,0,0.8)' }
+      legend: { 
+        position: 'top' as const, 
+        labels: { font: { size: 10, weight: '500' }, boxWidth: 10, usePointStyle: true } 
+      },
+      tooltip: { 
+        backgroundColor: '#1e293b', 
+        titleColor: '#fff',
+        bodyColor: '#cbd5e1',
+        bodyFont: { size: 11 },
+        padding: 8,
+        cornerRadius: 6,
+      }
     },
     scales: {
-      y: { beginAtZero: true, max: 100, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: (v: any) => v + '%' } },
-      x: { grid: { display: false } }
+      y: { 
+        beginAtZero: true, 
+        max: selectedMetric === 'tasks' ? 35 : 100, 
+        grid: { color: 'rgba(0,0,0,0.06)' }, 
+        ticks: { 
+          font: { size: 10, weight: '500' },
+          callback: (v: any) => selectedMetric === 'tasks' ? v : v + '%'
+        }
+      },
+      x: { 
+        grid: { display: false }, 
+        ticks: { font: { size: 10, weight: '500' } }
+      }
+    },
+  };
+
+  const barOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top' as const, labels: { font: { size: 10 } } },
+      tooltip: { backgroundColor: '#1e293b', bodyFont: { size: 11 } }
+    },
+    scales: {
+      y: { 
+        beginAtZero: true, 
+        max: 100, 
+        grid: { color: 'rgba(0,0,0,0.06)' }, 
+        ticks: { font: { size: 10 }, callback: (v: any) => v + '%' }
+      },
+      x: { ticks: { font: { size: 10, weight: '500' } } }
     },
   };
 
   const doughnutOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { position: 'bottom' as const, labels: { font: { size: 10 } } } },
+    cutout: '65%',
+    plugins: { 
+      legend: { position: 'bottom' as const, labels: { font: { size: 10 }, usePointStyle: true } },
+      tooltip: { backgroundColor: '#1e293b', bodyFont: { size: 11 } }
+    },
   };
 
   if (loading) {
@@ -194,8 +285,8 @@ export default function Analytics() {
         <Sidebar user={user} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <div className="w-10 h-10 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-orange-700 text-sm">Loading analytics...</p>
+            <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+            <p className="text-orange-700 text-xs font-medium">Loading analytics...</p>
           </div>
         </main>
       </div>
@@ -204,194 +295,220 @@ export default function Analytics() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-orange-100 via-amber-100 to-yellow-100">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Syne:wght@400;500;600;700;800&display=swap');
-        
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .stat-card {
-          animation: slideUp 0.4s ease both;
-          transition: all 0.3s ease;
-        }
-        .stat-card:hover { transform: translateY(-3px); }
-        .chart-card { transition: all 0.3s ease; }
-        .chart-card:hover { transform: translateY(-2px); box-shadow: 0 15px 35px -12px rgba(249,115,22,0.15); }
-        
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: #fed7aa; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb { background: #f97316; border-radius: 10px; }
-      `}</style>
-
       <Sidebar user={user} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
 
       <main className="flex-1 overflow-y-auto">
-        {/* Curved Header Banner - Orange Theme */}
-        <div className="relative bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 pb-12 rounded-b-3xl shadow-lg">
-          <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-br from-orange-100 via-amber-100 to-yellow-100 rounded-t-3xl"></div>
-          <div className="px-6 pt-5 pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-white" style={{ fontFamily: "'Syne', sans-serif" }}>
-                  📊 Analytics Dashboard
-                </h1>
-                <p className="text-white/80 text-xs mt-0.5">Track your learning journey</p>
-              </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-full px-3 py-1.5">
-                <span className="text-white text-xs font-medium">👋 {user?.fullName?.split(" ")[0] || "Student"}</span>
-              </div>
+        {/* Header */}
+        <div className="bg-gradient-to-r from-orange-600 to-amber-600 px-5 py-4 sticky top-0 z-10">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-white" style={{ fontFamily: "'Syne', sans-serif" }}>📊 Analytics</h1>
+              <p className="text-white/80 text-xs mt-0.5">Track your learning journey</p>
+            </div>
+            <div className="bg-white/20 backdrop-blur rounded-full px-3 py-1.5">
+              <span className="text-white text-xs font-medium">{user?.fullName?.split(" ")[0] || "Student"}</span>
             </div>
           </div>
         </div>
 
-        <div className="px-5 pb-5 -mt-4">
-          {/* Stats Cards - Orange Theme */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-5">
-            {statsCards.map((stat, idx) => (
-              <div
-                key={stat.title}
-                className="stat-card bg-white rounded-xl p-2.5 shadow-sm border border-orange-100"
-                style={{ animationDelay: `${idx * 0.05}s` }}
-              >
-                <div className={`w-7 h-7 rounded-lg bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-white text-sm shadow-sm mb-1.5`}>
-                  {stat.icon}
-                </div>
-                <p className="text-lg font-bold text-gray-800">{stat.value}</p>
-                <p className="text-[8px] text-orange-600">{stat.title}</p>
+        <div className="p-5">
+          {/* Stats Row - Compact with Better Contrast */}
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-5">
+            <div className="bg-white rounded-xl p-3 shadow-sm border-l-4 border-orange-500">
+              <div className="flex items-center justify-between">
+                <span className="text-xl">🔥</span>
+                <span className="text-xl font-bold text-gray-800">{stats.streak}</span>
               </div>
-            ))}
+              <p className="text-[10px] font-medium text-orange-600 mt-1">Day Streak</p>
+            </div>
+            <div className="bg-white rounded-xl p-3 shadow-sm border-l-4 border-amber-500">
+              <div className="flex items-center justify-between">
+                <span className="text-xl">⭐</span>
+                <span className="text-xl font-bold text-gray-800">{stats.skillsCount}</span>
+              </div>
+              <p className="text-[10px] font-medium text-amber-600 mt-1">Skills</p>
+            </div>
+            <div className="bg-white rounded-xl p-3 shadow-sm border-l-4 border-yellow-500">
+              <div className="flex items-center justify-between">
+                <span className="text-xl">📚</span>
+                <span className="text-xl font-bold text-gray-800">{stats.coursesCount}</span>
+              </div>
+              <p className="text-[10px] font-medium text-yellow-600 mt-1">Courses</p>
+            </div>
+            <div className="bg-white rounded-xl p-3 shadow-sm border-l-4 border-green-500">
+              <div className="flex items-center justify-between">
+                <span className="text-xl">📈</span>
+                <span className="text-xl font-bold text-gray-800">{stats.consistency}%</span>
+              </div>
+              <p className="text-[10px] font-medium text-green-600 mt-1">Avg Score</p>
+            </div>
+            <div className="bg-white rounded-xl p-3 shadow-sm border-l-4 border-blue-500">
+              <div className="flex items-center justify-between">
+                <span className="text-xl">💰</span>
+                <span className="text-xl font-bold text-gray-800">{stats.procredits}</span>
+              </div>
+              <p className="text-[10px] font-medium text-blue-600 mt-1">Credits</p>
+            </div>
+            <div className="bg-white rounded-xl p-3 shadow-sm border-l-4 border-purple-500">
+              <div className="flex items-center justify-between">
+                <span className="text-xl">🏆</span>
+                <span className="text-xl font-bold text-gray-800">{stats.applicationsCount}</span>
+              </div>
+              <p className="text-[10px] font-medium text-purple-600 mt-1">Applications</p>
+            </div>
           </div>
 
-          {/* Time Range Toggle - Orange Theme */}
-          <div className="flex gap-1.5 justify-end mb-4">
-            {[
-              { id: "week", label: "Week", icon: "📅" },
-              { id: "month", label: "Month", icon: "📆" },
-              { id: "year", label: "Year", icon: "📊" },
-            ].map((range) => (
+          {/* Controls - Compact */}
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex gap-1.5 bg-white rounded-lg p-1 shadow-sm">
+              {[
+                { id: "week", label: "Weekly" },
+                { id: "month", label: "Monthly" },
+                { id: "year", label: "Yearly" },
+              ].map((range) => (
+                <button
+                  key={range.id}
+                  onClick={() => setTimeRange(range.id as any)}
+                  className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                    timeRange === range.id
+                      ? "bg-orange-500 text-white shadow-sm"
+                      : "text-gray-600 hover:bg-orange-50"
+                  }`}
+                >
+                  {range.label}
+                </button>
+              ))}
+            </div>
+            
+            <div className="flex gap-1.5 bg-white rounded-lg p-1 shadow-sm">
               <button
-                key={range.id}
-                onClick={() => setTimeRange(range.id as any)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                  timeRange === range.id
-                    ? "bg-orange-500 text-white shadow-sm"
-                    : "bg-white text-orange-600 hover:bg-orange-50 border border-orange-200"
+                onClick={() => setSelectedMetric("progress")}
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1 ${
+                  selectedMetric === "progress" ? "bg-orange-500 text-white" : "text-gray-600 hover:bg-orange-50"
                 }`}
               >
-                {range.label}
+                <span>📈</span> Progress
               </button>
-            ))}
+              <button
+                onClick={() => setSelectedMetric("tasks")}
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1 ${
+                  selectedMetric === "tasks" ? "bg-orange-500 text-white" : "text-gray-600 hover:bg-orange-50"
+                }`}
+              >
+                <span>✅</span> Tasks
+              </button>
+              <button
+                onClick={() => setSelectedMetric("score")}
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1 ${
+                  selectedMetric === "score" ? "bg-orange-500 text-white" : "text-gray-600 hover:bg-orange-50"
+                }`}
+              >
+                <span>🎯</span> Scores
+              </button>
+            </div>
           </div>
 
-          {/* Charts Grid */}
+          {/* Main Chart Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
             {/* Performance Chart */}
-            <div className="chart-card bg-white rounded-xl p-3 shadow-sm border border-orange-100">
-              <div className="mb-2">
-                <h3 className="text-sm font-semibold text-orange-800">📈 Learning Progress</h3>
-                <p className="text-[9px] text-orange-500">Daily performance trend</p>
-              </div>
-              <div className="h-52">
-                {performanceData.length > 0 ? (
-                  <Line data={performanceChartData} options={chartOptions} />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-orange-400 text-xs">Complete tasks to see progress</p>
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{getCurrentLabel()}</p>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-2xl font-bold text-gray-800">
+                      {currentData[currentData.length-1]}{getCurrentUnit()}
+                    </span>
+                    <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                      improvement >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {improvement >= 0 ? `+${improvement}` : improvement}{getCurrentUnit()}
+                    </span>
                   </div>
-                )}
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-gray-400">Average</p>
+                  <p className="text-sm font-bold text-gray-700">{avgValue}{getCurrentUnit()}</p>
+                </div>
+              </div>
+              <div className="h-48">
+                <Line data={performanceChartData} options={chartOptions} />
               </div>
             </div>
 
             {/* Skills Chart */}
-            <div className="chart-card bg-white rounded-xl p-3 shadow-sm border border-orange-100">
-              <div className="mb-2">
-                <h3 className="text-sm font-semibold text-orange-800">🎯 Skills Proficiency</h3>
-                <p className="text-[9px] text-orange-500">Your skill mastery levels</p>
-              </div>
-              <div className="h-52">
-                {skills.length > 0 ? (
-                  <Bar data={skillsChartData} options={chartOptions} />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-orange-400 text-xs">No skills data available</p>
-                  </div>
-                )}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">🎯 Top Skills</p>
+              <div className="h-48">
+                <Bar data={skillsChartData} options={barOptions} />
               </div>
             </div>
           </div>
 
-          {/* Second Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-            {/* Activity Chart */}
-            <div className="chart-card bg-white rounded-xl p-3 shadow-sm border border-orange-100">
-              <div className="mb-2">
-                <h3 className="text-sm font-semibold text-orange-800">📊 Activity Breakdown</h3>
-                <p className="text-[9px] text-orange-500">Learning distribution</p>
-              </div>
-              <div className="h-44">
+          {/* Bottom Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            {/* Activity Distribution */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">📊 Activity Breakdown</p>
+              <div className="h-36">
                 <Doughnut data={activityData} options={doughnutOptions} />
+              </div>
+              <div className="flex justify-center gap-4 mt-2">
+                <div className="text-center">
+                  <p className="text-xs font-bold text-gray-800">{activityCounts.courses}</p>
+                  <p className="text-[9px] text-orange-500">Courses</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-bold text-gray-800">{activityCounts.quizzes}</p>
+                  <p className="text-[9px] text-amber-500">Quizzes</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-bold text-gray-800">{activityCounts.jobs}</p>
+                  <p className="text-[9px] text-yellow-500">Jobs</p>
+                </div>
               </div>
             </div>
 
             {/* Recent Activity */}
-            <div className="bg-white rounded-xl p-3 shadow-sm border border-orange-100 lg:col-span-2">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <h3 className="text-sm font-semibold text-orange-800">🕒 Recent Activity</h3>
-                  <p className="text-[9px] text-orange-500">Latest achievements</p>
-                </div>
-              </div>
-              <div className="space-y-1.5 max-h-44 overflow-y-auto">
-                {activities.length > 0 ? (
-                  activities.slice(0, 4).map((activity, idx) => (
-                    <div key={idx} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-orange-50 transition-all">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${
-                        activity.type === 'course' ? 'bg-orange-100 text-orange-600' :
-                        activity.type === 'quiz' ? 'bg-amber-100 text-amber-600' :
-                        'bg-yellow-100 text-yellow-600'
-                      }`}>
-                        {activity.type === 'course' ? '📚' : activity.type === 'quiz' ? '📝' : '💻'}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs font-medium text-gray-700">{activity.activity}</p>
-                        <p className="text-[8px] text-orange-400">{new Date(activity.date).toLocaleDateString()}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs font-semibold text-orange-600">{activity.credits}</p>
-                      </div>
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">🕒 Recent Activity</p>
+              <div className="space-y-2 max-h-36 overflow-y-auto">
+                {activities.slice(0, 3).map((activity, idx) => (
+                  <div key={idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-orange-50 transition-all">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm ${
+                      activity.type === 'course' ? 'bg-orange-100 text-orange-600' :
+                      activity.type === 'quiz' ? 'bg-amber-100 text-amber-600' : 'bg-yellow-100 text-yellow-600'
+                    }`}>
+                      {activity.type === 'course' ? '📚' : activity.type === 'quiz' ? '📝' : '💼'}
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-6">
-                    <p className="text-orange-400 text-xs">No recent activities</p>
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-gray-800 truncate">{activity.activity}</p>
+                      <p className="text-[9px] text-gray-400">{new Date(activity.date).toLocaleDateString()}</p>
+                    </div>
+                    <span className="text-xs font-bold text-green-600">{activity.credits}</span>
                   </div>
-                )}
+                ))}
               </div>
             </div>
           </div>
 
-          {/* Achievements - Orange Theme */}
-          <div className="bg-white rounded-xl p-3 shadow-sm border border-orange-100">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <h3 className="text-sm font-semibold text-orange-800">🏆 Achievements</h3>
-                <p className="text-[9px] text-orange-500">Badges earned</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
+          {/* Badges Row */}
+          <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">🏆 Achievements</p>
+            <div className="grid grid-cols-4 gap-2">
               {[
-                { name: "7 Day", icon: "🔥", color: "from-orange-500 to-red-500", earned: stats.streak >= 7 },
-                { name: "Quiz", icon: "📝", color: "from-orange-400 to-amber-500", earned: true },
-                { name: "Course", icon: "📚", color: "from-amber-500 to-yellow-500", earned: stats.coursesCount >= 1 },
-                { name: "Credits", icon: "💰", color: "from-orange-500 to-amber-500", earned: stats.procredits >= 1000 },
-                { name: "Top", icon: "🏆", color: "from-yellow-500 to-orange-500", earned: false },
-                { name: "Master", icon: "⭐", color: "from-orange-400 to-amber-400", earned: false },
+                { name: "7 Day Streak", icon: "🔥", earned: stats.streak >= 7 },
+                { name: "Quiz Master", icon: "📝", earned: true },
+                { name: "Course Hero", icon: "📚", earned: stats.coursesCount >= 1 },
+                { name: "Skill Master", icon: "⭐", earned: stats.skillsCount >= 5 },
               ].map((badge, idx) => (
-                <div key={idx} className={`text-center p-1.5 rounded-lg ${badge.earned ? 'bg-gradient-to-br ' + badge.color + ' text-white shadow-sm' : 'bg-orange-50 text-orange-300'}`}>
-                  <div className="text-base">{badge.icon}</div>
-                  <p className="text-[7px] font-medium">{badge.name}</p>
+                <div key={idx} className={`text-center p-2 rounded-lg transition-all ${
+                  badge.earned 
+                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm' 
+                    : 'bg-gray-100 text-gray-400'
+                }`}>
+                  <div className="text-lg">{badge.icon}</div>
+                  <p className="text-[8px] font-semibold mt-0.5">{badge.name}</p>
                 </div>
               ))}
             </div>

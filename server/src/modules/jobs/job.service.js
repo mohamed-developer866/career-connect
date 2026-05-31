@@ -17,6 +17,14 @@ async function getJobs(filters = {}) {
   });
 }
 
+// ADD THIS NEW FUNCTION
+async function getApprovedJobs() {
+  return prisma.job.findMany({
+    where: { status: 'approved' },
+    orderBy: { createdAt: 'desc' }
+  });
+}
+
 async function getJobById(id) {
   return prisma.job.findUnique({ 
     where: { id },
@@ -28,4 +36,4 @@ async function createJob(data) {
   return prisma.job.create({ data });
 }
 
-module.exports = { getJobs, getJobById, createJob };
+module.exports = { getJobs, getApprovedJobs, getJobById, createJob };

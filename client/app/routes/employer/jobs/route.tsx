@@ -11,16 +11,21 @@ export default function MyJobs() {
   useEffect(function() { loadJobs(); }, []);
 
   var loadJobs = async function() {
-    var token = localStorage.getItem("token");
-    var res = await fetch("http://localhost:5000/api/jobs/employer", {
-      headers: { Authorization: "Bearer " + token }
-    });
-    if (res.ok) {
-      var data = await res.json();
-      setJobs(data.jobs || []);
-    }
-    setLoading(false);
-  };
+  var token = localStorage.getItem("token");
+  // Change from /api/jobs/employer to /api/jobs/my-jobs
+  var res = await fetch("http://localhost:5000/api/jobs/my-jobs", {
+    headers: { Authorization: "Bearer " + token }
+  });
+  
+  if (res.ok) {
+    var data = await res.json();
+    setJobs(data.jobs || []);
+  } else {
+    console.error("Failed to load jobs:", res.status);
+    setJobs([]);
+  }
+  setLoading(false);
+};
 
   var deleteJob = async function(id: string) {
     if (!confirm("Delete this job?")) return;

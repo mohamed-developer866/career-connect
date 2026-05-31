@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useOutletContext } from "react-router";
+import { useNavigate, useOutletContext } from "react-router";
 import Sidebar from "../../../components/Sidebar";
 
 const AI_TIPS = [
@@ -14,15 +14,15 @@ const AI_TIPS = [
 ];
 
 export default function JobBoard() {
+  const navigate = useNavigate();
   const { user } = useOutletContext<any>();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [jobs, setJobs] = useState<any[]>([]);
-  const [appliedJobs, setAppliedJobs] = useState<any[]>([]);
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showDetail, setShowDetail] = useState(false);
   const [aiTip, setAiTip] = useState("");
-  const [filter, setFilter] = useState<"all" | "fulltime" | "internship" | "expiring" | "applied">("all");
+  const [filter, setFilter] = useState<"all" | "fulltime" | "internship" | "expiring">("all");
   const [submitting, setSubmitting] = useState(false);
   const [resume, setResume] = useState<File | null>(null);
   const [showResumeUpload, setShowResumeUpload] = useState(false);
@@ -33,7 +33,6 @@ export default function JobBoard() {
 
   useEffect(() => { 
     loadJobs(); 
-    loadMyApplications();
     loadSavedJobs();
   }, []);
 
@@ -45,7 +44,11 @@ export default function JobBoard() {
   const loadSavedJobs = () => {
     const saved = localStorage.getItem("savedJobs");
     if (saved) {
-      setSavedJobs(new Set(JSON.parse(saved)));
+      try {
+        setSavedJobs(new Set(JSON.parse(saved)));
+      } catch (e) {
+        setSavedJobs(new Set());
+      }
     }
   };
 
@@ -63,48 +66,59 @@ export default function JobBoard() {
   };
 
   const loadJobs = async () => {
-    try { 
-      const token = localStorage.getItem("token");
-      // This endpoint now returns ONLY jobs the student HAS NOT applied to
-      const res = await fetch("http://localhost:5000/api/jobs/approved", {
+    setLoading(true);
+    const token = localStorage.getItem("token");
+    
+    try {
+      // Get all approved jobs
+      const jobsRes = await fetch("http://localhost:5000/api/jobs/approved", {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (res.ok) {
-        const data = await res.json();
-        let jobsList = data.jobs || data || [];
-        
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        jobsList = jobsList.filter((job: any) => {
-          const deadline = new Date(job.deadline);
-          deadline.setHours(0, 0, 0, 0);
-          return deadline >= today;
-        });
-        
-        setJobs(jobsList);
-        if (jobsList.length > 0 && !selectedJob) {
-          setSelectedJob(jobsList[0]);
-          setShowDetail(true);
-          setAiTip(AI_TIPS[Math.floor(Math.random() * AI_TIPS.length)]);
-        }
-      }
-    } 
-    catch (err) { console.error(err); } 
-    finally { setLoading(false); }
-  };
-
-  const loadMyApplications = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/applications/my", { 
-        headers: { Authorization: `Bearer ${token}` } 
+      const jobsData = await jobsRes.json();
+      const allJobs = jobsData.jobs || jobsData || [];
+      
+      // Get my applications to filter out applied jobs
+      const appsRes = await fetch("http://localhost:5000/api/applications/my", {
+        headers: { Authorization: `Bearer ${token}` }
       });
-      if (res.ok) { 
-        const apps = await res.json(); 
-        setAppliedJobs(apps);
+      const appsData = await appsRes.json();
+      const myApplications = appsData.applications || appsData || [];
+      
+      // Get IDs of jobs already applied to
+      const appliedJobIds = new Set(myApplications.map((app: any) => app.jobId));
+      
+      // Filter out applied jobs
+      const notAppliedJobs = allJobs.filter((job: any) => !appliedJobIds.has(job.id));
+      
+      // Filter out expired jobs
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const validJobs = notAppliedJobs.filter((job: any) => {
+        if (!job.deadline) return true;
+        const deadline = new Date(job.deadline);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline >= today;
+      });
+      
+      console.log(`📊 Total jobs: ${allJobs.length}, Applied: ${appliedJobIds.size}, Available: ${validJobs.length}`);
+      
+      setJobs(validJobs);
+      
+      if (validJobs.length > 0 && !selectedJob) {
+        setSelectedJob(validJobs[0]);
+        setShowDetail(true);
+        setAiTip(AI_TIPS[Math.floor(Math.random() * AI_TIPS.length)]);
+      } else if (validJobs.length === 0) {
+        setShowDetail(false);
+        setSelectedJob(null);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to load jobs", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getMatchScore = (studentSkills: string, jobSkills: string) => {
@@ -120,8 +134,6 @@ export default function JobBoard() {
 
   const userSkills = user?.skills?.map((s: any) => s.name).join(', ') || "React, JavaScript, HTML, CSS, Node.js";
 
-  const hasAppliedToJob = (jobId: string) => appliedJobs.some(app => app.jobId === jobId);
-
   const isJobSaved = (jobId: string) => savedJobs.has(jobId);
 
   const handleJobClick = (job: any) => {
@@ -136,14 +148,14 @@ export default function JobBoard() {
   const handleApply = async () => {
     if (!selectedJob) return;
     
-    if (hasAppliedToJob(selectedJob.id)) {
-      showToast("You have already applied for this position!", "error");
-      return;
-    }
-    
     if (!showResumeUpload) { 
       setShowResumeUpload(true); 
       return; 
+    }
+    
+    if (!resume) {
+      showToast("Please upload your resume", "error");
+      return;
     }
     
     setSubmitting(true);
@@ -151,45 +163,35 @@ export default function JobBoard() {
     try {
       const token = localStorage.getItem("token");
       const userData = JSON.parse(localStorage.getItem("user") || "{}");
-      let resumeData = null;
       
-      if (resume) {
-        const reader = new FileReader();
-        resumeData = await new Promise((resolve) => { 
-          reader.onload = () => resolve(reader.result); 
-          reader.readAsDataURL(resume); 
-        });
-      }
+      const formData = new FormData();
+      formData.append("jobId", selectedJob.id);
+      formData.append("studentName", userData.fullName || user?.fullName || "Student");
+      formData.append("studentEmail", userData.email || user?.email || "student@email.com");
+      formData.append("college", userData.college || user?.college || "AMSCE Chennai");
+      formData.append("department", userData.department || user?.department || "Computer Science");
+      formData.append("resume", resume);
       
       const res = await fetch("http://localhost:5000/api/applications/apply", {
         method: "POST", 
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ 
-          jobId: selectedJob.id, 
-          studentName: userData.fullName || user?.fullName || "Student", 
-          studentEmail: userData.email || user?.email || "student@email.com", 
-          college: userData.college || user?.college || "AMSCE Chennai", 
-          department: userData.department || user?.department || "Computer Science", 
-          resume: resumeData 
-        }),
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
       });
       
       const data = await res.json();
       
       if (res.ok) { 
-        // Refresh both job list and applications
-        await loadJobs();
-        await loadMyApplications();
+        showToast("Application submitted successfully! 🎉", "success");
         setShowResumeUpload(false); 
         setResume(null);
-        showToast("Application submitted successfully! 🎉", "success");
-        // Close detail view if the job was removed from list
+        // Refresh jobs list - the applied job will disappear!
+        await loadJobs();
         setShowDetail(false);
         setSelectedJob(null);
       } else {
-        if (data.alreadyApplied || data.error?.includes("already applied")) {
-          showToast("You have already applied for this position!", "error");
-          await loadMyApplications();
+        if (data.alreadyApplied) {
+          showToast("You have already applied for this job!", "error");
+          await loadJobs(); // Refresh to remove it from list
         } else {
           showToast(data.error || "Application failed. Please try again.", "error");
         }
@@ -203,6 +205,7 @@ export default function JobBoard() {
   };
 
   const getDaysLeft = (deadline: string) => {
+    if (!deadline) return 30;
     const deadlineDate = new Date(deadline);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -224,26 +227,17 @@ export default function JobBoard() {
     return minL === maxL ? `₹${minL}L` : `₹${minL}L - ₹${maxL}L`;
   };
 
-  // Filter jobs (now jobs already exclude applied ones)
-  const filteredJobs = jobs.filter(job => {
+  const filteredJobs = (Array.isArray(jobs) ? jobs : []).filter(job => {
     if (filter === "fulltime") return job.type === "Full-time";
     if (filter === "internship") return job.type === "Internship";
     if (filter === "expiring") return getDaysLeft(job.deadline) <= 7 && getDaysLeft(job.deadline) >= 0;
-    if (filter === "applied") return false; // Applied jobs are in separate list
     return true;
   }).filter(job => {
     if (!searchTerm) return true;
-    return job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           job.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           job.skills?.toLowerCase().includes(searchTerm.toLowerCase());
+    return (job.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+           (job.company || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+           (job.skills || "").toLowerCase().includes(searchTerm.toLowerCase());
   });
-
-  useEffect(() => {
-    if (filteredJobs.length > 0 && !selectedJob) {
-      setSelectedJob(filteredJobs[0]);
-      setShowDetail(true);
-    }
-  }, [filteredJobs]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50/30" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -257,11 +251,6 @@ export default function JobBoard() {
         
         @keyframes slideRight {
           from { opacity: 0; transform: translateX(20px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        
-        @keyframes slideLeft {
-          from { opacity: 0; transform: translateX(-20px); }
           to { opacity: 1; transform: translateX(0); }
         }
         
@@ -318,13 +307,6 @@ export default function JobBoard() {
           transform: scale(1.02);
         }
         
-        .applied-badge {
-          background: linear-gradient(135deg, #d1fae5, #a7f3d0);
-          color: #047857;
-          font-weight: 600;
-          border-radius: 10px;
-        }
-        
         .toast-in {
           animation: slideLeft 0.3s ease forwards;
         }
@@ -368,21 +350,31 @@ export default function JobBoard() {
             />
           </div>
           
-          <div className="flex items-center gap-2">
-            <button onClick={() => setFilter("all")} className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${filter === "all" ? "filter-active" : "filter-inactive"}`}>All</button>
-            <button onClick={() => setFilter("fulltime")} className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${filter === "fulltime" ? "filter-active" : "filter-inactive"}`}>Full-time</button>
-            <button onClick={() => setFilter("internship")} className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${filter === "internship" ? "filter-active" : "filter-inactive"}`}>Internship</button>
-            <button onClick={() => setFilter("expiring")} className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${filter === "expiring" ? "filter-active" : "filter-inactive"}`}>🔥 Urgent</button>
-          </div>
+          {/* My Applications Button */}
+          <button 
+            onClick={() => navigate("/student/applications")}
+            className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-md flex items-center gap-2"
+          >
+            📋 My Applications
+          </button>
         </div>
 
-        {/* Main Content - Show both sections if needed */}
+        {/* Filter Bar */}
+        <div className="px-6 py-3 border-b border-blue-100 bg-white/50 flex items-center gap-2">
+          <span className="text-xs text-slate-500 mr-2">Filter:</span>
+          <button onClick={() => setFilter("all")} className={`px-3 py-1 rounded-lg text-[10px] font-medium transition-all ${filter === "all" ? "filter-active" : "bg-gray-100 text-slate-600 hover:bg-gray-200"}`}>All</button>
+          <button onClick={() => setFilter("fulltime")} className={`px-3 py-1 rounded-lg text-[10px] font-medium transition-all ${filter === "fulltime" ? "filter-active" : "bg-gray-100 text-slate-600 hover:bg-gray-200"}`}>Full-time</button>
+          <button onClick={() => setFilter("internship")} className={`px-3 py-1 rounded-lg text-[10px] font-medium transition-all ${filter === "internship" ? "filter-active" : "bg-gray-100 text-slate-600 hover:bg-gray-200"}`}>Internship</button>
+          <button onClick={() => setFilter("expiring")} className={`px-3 py-1 rounded-lg text-[10px] font-medium transition-all ${filter === "expiring" ? "filter-active" : "bg-gray-100 text-slate-600 hover:bg-gray-200"}`}>🔥 Urgent</button>
+        </div>
+
+        {/* Main Content */}
         <div className="flex-1 flex overflow-hidden p-4 gap-4">
-          {/* Available Jobs List */}
+          {/* Job List - Left Column */}
           <div className={`${showDetail ? "w-[42%]" : "flex-1"} bg-white rounded-xl shadow-sm border border-blue-100 flex flex-col transition-all duration-300 overflow-hidden`}>
             <div className="px-4 py-2 border-b border-blue-100 bg-blue-50/30">
               <h3 className="text-xs font-semibold text-blue-700">📌 Available Jobs</h3>
-              <p className="text-[9px] text-blue-500">Jobs you haven't applied to yet</p>
+              <p className="text-[9px] text-blue-500">Jobs you can apply to (applied jobs are hidden)</p>
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-2">
               {loading ? (
@@ -397,8 +389,14 @@ export default function JobBoard() {
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
                     <span className="text-4xl mb-2 block">🎉</span>
-                    <p className="text-slate-500 text-sm">No new jobs available</p>
-                    <p className="text-slate-400 text-xs mt-1">You've applied to all jobs!</p>
+                    <p className="text-slate-500 text-sm">No jobs available</p>
+                    <p className="text-slate-400 text-xs mt-1">You've applied to all jobs or no jobs match</p>
+                    <button 
+                      onClick={() => navigate("/student/applications")}
+                      className="mt-3 px-3 py-1.5 bg-emerald-500 text-white text-xs rounded-lg hover:bg-emerald-600 transition"
+                    >
+                      View My Applications
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -418,7 +416,7 @@ export default function JobBoard() {
                       style={{ animationDelay: `${i * 0.03}s` }}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${isSelected ? "from-blue-500 to-indigo-600" : "from-blue-400 to-blue-600"} flex items-center justify-center text-white font-bold text-sm shadow-sm flex-shrink-0`}>
+                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${isSelected ? "from-blue-500 to-indigo-600" : "from-blue-400 to-blue-600"} flex items-center justify-center text-white font-bold text-sm shadow-sm flex-shrink-0`}>
                           {job.company?.charAt(0) || "C"}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -448,7 +446,7 @@ export default function JobBoard() {
                         <span className="flex items-center gap-0.5">💰 {formatSalary(job.salaryMin, job.salaryMax)}</span>
                         <span className="w-1 h-1 rounded-full bg-slate-300"></span>
                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${matchScore >= 70 ? "bg-blue-100 text-blue-700" : matchScore >= 40 ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-600"}`}>
-                          🤖 {matchScore}%
+                          🤖 {matchScore}% Match
                         </span>
                       </div>
                       
@@ -476,7 +474,7 @@ export default function JobBoard() {
               <div className="border-b border-blue-100 px-5 py-4 flex-shrink-0 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-xl">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-sm flex-shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-sm flex-shrink-0">
                       {selectedJob.company?.charAt(0) || "C"}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -622,62 +620,59 @@ export default function JobBoard() {
       </main>
 
       {/* Resume Upload Modal */}
-{showResumeUpload && !hasAppliedToJob(selectedJob?.id) && (
-  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setShowResumeUpload(false)}>
-    <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl shadow-sm">
-          📄
-        </div>
-        <div>
-          <h3 className="text-lg font-bold text-slate-800">Upload Resume</h3>
-          <p className="text-xs text-slate-500">Applying for <span className="font-semibold text-blue-600">{selectedJob?.title}</span></p>
-        </div>
-      </div>
-      
-      <form id="applyForm" encType="multipart/form-data">
-        <label className="block w-full p-6 border-2 border-dashed border-blue-200 rounded-xl text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all mb-4 group">
-          <input 
-            type="file" 
-            name="resume"
-            accept=".pdf,.doc,.docx" 
-            onChange={(e) => { 
-              const file = e.target.files?.[0]; 
-              if (file && file.size > 2 * 1024 * 1024) { 
-                showToast("File size must be less than 2MB", "error"); 
-                return; 
-              } 
-              setResume(file || null); 
-            }} 
-            className="hidden" 
-          />
-          {resume ? (
-            <div>
-              <span className="text-3xl block mb-2">📄</span>
-              <p className="text-sm font-semibold text-blue-600">{resume.name}</p>
-              <p className="text-[10px] text-slate-400 mt-1">Click to change</p>
+      {showResumeUpload && selectedJob && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setShowResumeUpload(false)}>
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl shadow-sm">
+                📄
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Upload Resume</h3>
+                <p className="text-xs text-slate-500">Applying for <span className="font-semibold text-blue-600">{selectedJob?.title}</span></p>
+              </div>
             </div>
-          ) : (
-            <div>
-              <span className="text-4xl block mb-2 group-hover:scale-110 transition-transform">📤</span>
-              <p className="text-sm font-medium text-slate-600">Click or drag to upload resume</p>
-              <p className="text-[10px] text-slate-400 mt-1">PDF, DOC up to 2MB</p>
+            
+            <label className="block w-full p-6 border-2 border-dashed border-blue-200 rounded-xl text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all mb-4 group">
+              <input 
+                type="file" 
+                accept=".pdf,.doc,.docx" 
+                onChange={(e) => { 
+                  const file = e.target.files?.[0]; 
+                  if (file && file.size > 2 * 1024 * 1024) { 
+                    showToast("File size must be less than 2MB", "error"); 
+                    return; 
+                  } 
+                  setResume(file || null); 
+                }} 
+                className="hidden" 
+              />
+              {resume ? (
+                <div>
+                  <span className="text-3xl block mb-2">📄</span>
+                  <p className="text-sm font-semibold text-blue-600">{resume.name}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Click to change</p>
+                </div>
+              ) : (
+                <div>
+                  <span className="text-4xl block mb-2 group-hover:scale-110 transition-transform">📤</span>
+                  <p className="text-sm font-medium text-slate-600">Click or drag to upload resume</p>
+                  <p className="text-[10px] text-slate-400 mt-1">PDF, DOC up to 2MB</p>
+                </div>
+              )}
+            </label>
+            
+            <div className="flex gap-3">
+              <button onClick={() => { setShowResumeUpload(false); setResume(null); }} className="flex-1 py-2.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-50 transition-all">
+                Cancel
+              </button>
+              <button onClick={handleApply} disabled={submitting || !resume} className="flex-1 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                {submitting ? "Submitting..." : "Submit Application"}
+              </button>
             </div>
-          )}
-        </label>
-      </form>
-      
-      <div className="flex gap-3">
-        <button onClick={() => { setShowResumeUpload(false); setResume(null); }} className="flex-1 py-2.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-50 transition-all">
-          Cancel
-        </button>
-        <button onClick={handleApply} disabled={submitting || !resume} className="flex-1 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-          {submitting ? "Submitting..." : "Submit Application"}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

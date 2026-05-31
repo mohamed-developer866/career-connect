@@ -1,60 +1,33 @@
-### SIMPLE JOB WORKFLOW TEST
+### TEST ALL POSSIBLE JOB ENDPOINTS
 
-### 1. LOGIN AS EMPLOYER
-
-post http://localhost:5000/api/auth/login
-Content-Type: application/json
-
-{
-  "email": "employer@test.com",
-  "password": "123456"
-}
-
-### 2. CREATE JOB (Employer)
-POST http://localhost:5000/api/jobs
-Authorization: Bearer YOUR_EMPLOYER_TOKEN
-Content-Type: application/json
-
-{
-  "title": "React Developer",
-  "company": "Tech Corp",
-  "location": "Remote",
-  "type": "Full-time",
-  "salaryMin": 800000,
-  "salaryMax": 1200000,
-  "description": "Looking for React developer",
-  "requirements": "React, JavaScript",
-  "skills": "React,JavaScript,HTML,CSS",
-  "deadline": "2026-12-31"
-}
-
-### 3. LOGIN AS COLLEGE
+### 1. Login as Employer
 POST http://localhost:5000/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "college@test.com",
+  "email": "hr@google.com",
   "password": "123456"
 }
 
-### 4. APPROVE JOB (College - use JOB_ID from step 2)
-PUT http://localhost:5000/api/jobs/JOB_ID_HERE/status
-Authorization: Bearer YOUR_COLLEGE_TOKEN
-Content-Type: application/json
+### 2. Test /api/jobs (GET all approved jobs)
+GET http://localhost:5000/api/jobs
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjcxNGQzZDdmLWNlMzctNGYzMS04YjhlLTM2MDA5NGQ2NDg0ZiIsInJvbGUiOiJFTVBMT1lFUiIsImlhdCI6MTc4MDIzNTgzNywiZXhwIjoxNzgwODQwNjM3fQ.V5ytJRbKE6DY0yLD1ufqFaUUlFmywWNPxiyqiGuledA
 
-{
-  "status": "approved"
-}
+### 3. Test /api/jobs/my-jobs
+GET http://localhost:5000/api/jobs/my-jobs
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjcxNGQzZDdmLWNlMzctNGYzMS04YjhlLTM2MDA5NGQ2NDg0ZiIsInJvbGUiOiJFTVBMT1lFUiIsImlhdCI6MTc4MDIzNTgzNywiZXhwIjoxNzgwODQwNjM3fQ.V5ytJRbKE6DY0yLD1ufqFaUUlFmywWNPxiyqiGuledA
 
-### 5. LOGIN AS STUDENT
-POST http://localhost:5000/api/auth/login
-Content-Type: application/json
+### 4. Test /api/jobs/all (College view)
+GET http://localhost:5000/api/jobs/all
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjcxNGQzZDdmLWNlMzctNGYzMS04YjhlLTM2MDA5NGQ2NDg0ZiIsInJvbGUiOiJFTVBMT1lFUiIsImlhdCI6MTc4MDIzNTgzNywiZXhwIjoxNzgwODQwNjM3fQ.V5ytJRbKE6DY0yLD1ufqFaUUlFmywWNPxiyqiGuledA
 
-{
-  "email": "student@test.com",
-  "password": "123456"
-}
-
-### 6. SEE APPROVED JOBS (Student)
+### 5. Test /api/jobs/approved (Student view)
 GET http://localhost:5000/api/jobs/approved
-Authorization: Bearer YOUR_STUDENT_TOKEN
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjcxNGQzZDdmLWNlMzctNGYzMS04YjhlLTM2MDA5NGQ2NDg0ZiIsInJvbGUiOiJFTVBMT1lFUiIsImlhdCI6MTc4MDIzNTgzNywiZXhwIjoxNzgwODQwNjM3fQ.V5ytJRbKE6DY0yLD1ufqFaUUlFmywWNPxiyqiGuledA
+
+### 6. Test /api/jobs/employer/applications
+GET http://localhost:5000/api/jobs/employer/applications
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjcxNGQzZDdmLWNlMzctNGYzMS04YjhlLTM2MDA5NGQ2NDg0ZiIsInJvbGUiOiJFTVBMT1lFUiIsImlhdCI6MTc4MDIzNTgzNywiZXhwIjoxNzgwODQwNjM3fQ.V5ytJRbKE6DY0yLD1ufqFaUUlFmywWNPxiyqiGuledA
+
+### 7. Health check
+GET http://localhost:5000/api/health

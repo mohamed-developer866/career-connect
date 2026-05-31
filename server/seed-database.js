@@ -149,7 +149,54 @@ async function main() {
   ];
   
   const studentRecords = [];
+  // After creating students, add this function
+async function updateStudentCredits() {
+  console.log('\n💰 Updating student credits...\n');
+  
+  // Give high credits to Aalim College students
+  const aalimStudents = await prisma.user.findMany({
+    where: {
+      role: 'STUDENT',
+      college: { contains: 'Aalim' }
+    }
+  });
+  
+  const aalimCredits = [5200, 5100, 5050, 5000, 4800, 4700, 4600, 4500];
+  
+  for (let i = 0; i < aalimStudents.length; i++) {
+    const credits = aalimCredits[i] || 4500;
+    await prisma.user.update({
+      where: { id: aalimStudents[i].id },
+      data: { 
+        procredits: credits,
+        streak: 100,
+        consistencyScore: 95
+      }
+    });
+    console.log(`   ✅ ${aalimStudents[i].fullName} - ${credits} credits`);
+  }
+  
+  // Give medium credits to other college students
+  const otherStudents = await prisma.user.findMany({
+    where: {
+      role: 'STUDENT',
+      college: { not: { contains: 'Aalim' } }
+    }
+  });
+  
+  for (const student of otherStudents) {
+    const credits = Math.floor(Math.random() * 2500) + 500;
+    await prisma.user.update({
+      where: { id: student.id },
+      data: { procredits: credits }
+    });
+  }
+  
+  console.log(`\n✅ Updated credits for all students`);
+}
 
+// Call this function after creating students
+await updateStudentCredits();
   // ===== AALIM COLLEGE STUDENTS (4 students - HIGH CREDITS) =====
   const aalimStudents = [
     { name: 'Bhuvanesh', credits: 4800, email: 'bhuvanesh@aalimcollege.edu' },
