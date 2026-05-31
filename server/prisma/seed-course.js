@@ -20,7 +20,7 @@ async function main() {
       category: "Frontend Development",
       difficulty: "Beginner to Advanced",
       duration: "18 hours",
-      totalModules: 6,
+      totalTopics: 6,
       accentColor: "#61dafb",
       icon: "⚛️",
       thumbnailUrl: "https://img.youtube.com/vi/SqcY0GlETPk/0.jpg"

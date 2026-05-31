@@ -6,68 +6,218 @@ export default function CourseLibrary() {
   const { user } = useOutletContext<any>();
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [courses, setCourses] = useState<any[]>([]);
+  const [dbCourses, setDbCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
 
- useEffect(function() {
-    var loadCourses = async function() {
-      try {
-        var token = localStorage.getItem("token");
-        console.log("Token:", token ? "Found" : "MISSING");
-        
-        var res = await fetch("http://localhost:5000/api/learning/courses/all", {
-          headers: { Authorization: "Bearer " + token }
-        });
-        
-        console.log("API Status:", res.status);
-        
-        if (res.ok) {
-          var data = await res.json();
-          console.log("API Response:", data);
-          console.log("Courses count:", data.courses ? data.courses.length : "No courses key");
-          
-          if (data.courses && data.courses.length > 0) {
-            setCourses(data.courses);
-          } else {
-            console.log("No courses in response");
-            setCourses([]);
-          }
-        } else {
-          console.log("API Error:", res.status);
-        }
-      } catch (err) { 
-        console.error("Fetch error:", err); 
-      }
-      finally { setLoading(false); }
-    };
+  // Extra showcase courses with rich content
+  const showcaseCourses = [
+    {
+      id: "showcase_1",
+      title: "Generative AI Masterclass",
+      subtitle: "Generative / Prompts / LLMs / Usecases",
+      category: "AI/ML",
+      difficulty: "Beginner",
+      duration: "15 Hours",
+      progress: 0,
+      icon: "🤖",
+      bgGradient: "from-purple-600 to-pink-600",
+      cardGradient: "from-purple-50 to-pink-50",
+      borderColor: "border-purple-200",
+      students: "2.5k",
+      isShowcase: true
+    },
+    {
+      id: "showcase_2",
+      title: "Modern Responsive Web Design",
+      subtitle: "Flexbox / CSS / Media / Tailwind",
+      category: "Frontend",
+      difficulty: "Intermediate",
+      duration: "36 Hours",
+      progress: 0,
+      icon: "🎨",
+      bgGradient: "from-blue-600 to-cyan-600",
+      cardGradient: "from-blue-50 to-cyan-50",
+      borderColor: "border-blue-200",
+      students: "1.8k",
+      isShowcase: true
+    },
+    {
+      id: "showcase_3",
+      title: "Programming Fundamentals",
+      subtitle: "Python / Basics / Functions",
+      category: "Programming",
+      difficulty: "Beginner",
+      duration: "65 Hours",
+      progress: 0,
+      icon: "🐍",
+      bgGradient: "from-green-600 to-emerald-600",
+      cardGradient: "from-green-50 to-emerald-50",
+      borderColor: "border-green-200",
+      students: "3.2k",
+      isShowcase: true
+    },
+    {
+      id: "showcase_4",
+      title: "Full Stack Development",
+      subtitle: "React / Node.js / MongoDB / Express",
+      category: "Full Stack",
+      difficulty: "Advanced",
+      duration: "80 Hours",
+      progress: 0,
+      icon: "🌐",
+      bgGradient: "from-orange-600 to-red-600",
+      cardGradient: "from-orange-50 to-red-50",
+      borderColor: "border-orange-200",
+      students: "4.1k",
+      isShowcase: true
+    },
+    {
+      id: "showcase_5",
+      title: "Data Structures & Algorithms",
+      subtitle: "Arrays / Linked Lists / Trees / DP",
+      category: "DSA",
+      difficulty: "Intermediate",
+      duration: "120 Hours",
+      progress: 0,
+      icon: "📊",
+      bgGradient: "from-indigo-600 to-purple-600",
+      cardGradient: "from-indigo-50 to-purple-50",
+      borderColor: "border-indigo-200",
+      students: "5.3k",
+      isShowcase: true
+    },
+    {
+      id: "showcase_6",
+      title: "Cloud Computing (AWS)",
+      subtitle: "EC2 / S3 / Lambda / Serverless",
+      category: "DevOps",
+      difficulty: "Advanced",
+      duration: "50 Hours",
+      progress: 0,
+      icon: "☁️",
+      bgGradient: "from-yellow-600 to-orange-600",
+      cardGradient: "from-yellow-50 to-orange-50",
+      borderColor: "border-yellow-200",
+      students: "1.2k",
+      isShowcase: true
+    },
+    {
+      id: "showcase_7",
+      title: "TypeScript Mastery",
+      subtitle: "Types / Interfaces / Generics / React",
+      category: "Frontend",
+      difficulty: "Intermediate",
+      duration: "25 Hours",
+      progress: 0,
+      icon: "📘",
+      bgGradient: "from-sky-600 to-blue-600",
+      cardGradient: "from-sky-50 to-blue-50",
+      borderColor: "border-sky-200",
+      students: "980",
+      isShowcase: true
+    },
+    {
+      id: "showcase_8",
+      title: "Machine Learning Basics",
+      subtitle: "Regression / Classification / Clustering",
+      category: "AI/ML",
+      difficulty: "Intermediate",
+      duration: "60 Hours",
+      progress: 0,
+      icon: "🧠",
+      bgGradient: "from-rose-600 to-pink-600",
+      cardGradient: "from-rose-50 to-pink-50",
+      borderColor: "border-rose-200",
+      students: "2.1k",
+      isShowcase: true
+    },
+    {
+      id: "showcase_9",
+      title: "DevOps with Docker & K8s",
+      subtitle: "Containers / Orchestration / CI-CD",
+      category: "DevOps",
+      difficulty: "Advanced",
+      duration: "40 Hours",
+      progress: 0,
+      icon: "🐳",
+      bgGradient: "from-teal-600 to-cyan-600",
+      cardGradient: "from-teal-50 to-cyan-50",
+      borderColor: "border-teal-200",
+      students: "750",
+      isShowcase: true
+    }
+  ];
+
+  useEffect(() => {
     loadCourses();
   }, []);
 
-  var colors = ["#6c47ff", "#3cc68a", "#ff6b35", "#3B82F6", "#8B5CF6", "#F59E0B", "#EF4444", "#10B981", "#EC4899", "#06B6D4"];
-  var bgGradients = [
-    "linear-gradient(135deg,#e8f8f0,#c8f0dc)",
-    "linear-gradient(135deg,#e8eeff,#d0daff)",
-    "linear-gradient(135deg,#e0f7fa,#b2ebf2)",
-    "linear-gradient(135deg,#f3f4f6,#e5e7eb)",
-    "linear-gradient(135deg,#f3e8ff,#e9d5ff)",
-    "linear-gradient(135deg,#fff7ed,#fed7aa)",
-    "linear-gradient(135deg,#fef2f2,#fecaca)",
-    "linear-gradient(135deg,#ecfdf5,#a7f3d0)",
+  const loadCourses = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/learning/courses/all", {
+        headers: { Authorization: "Bearer " + token }
+      });
+      
+      let coursesFromDB = [];
+      if (res.ok) {
+        const data = await res.json();
+        coursesFromDB = data.courses || [];
+      }
+      
+      const dbCoursesWithProgress = coursesFromDB.map((course, index) => ({
+        ...course,
+        progress: Math.floor(Math.random() * 100),
+        students: `${Math.floor(Math.random() * 5000) + 500}`,
+        bgGradient: `from-${['purple','pink','blue','green','orange','indigo'][index % 6]}-600 to-${['pink','purple','cyan','emerald','red','purple'][index % 6]}-600`,
+        cardGradient: `from-${['purple','pink','blue','green','orange','indigo'][index % 6]}-50 to-${['pink','purple','cyan','emerald','red','purple'][index % 6]}-50`,
+        borderColor: `border-${['purple','pink','blue','green','orange','indigo'][index % 6]}-200`,
+        isShowcase: false
+      }));
+      
+      const allCourses = [...dbCoursesWithProgress, ...showcaseCourses];
+      setDbCourses(allCourses);
+      
+    } catch (err) {
+      console.error("Fetch error:", err);
+      setDbCourses(showcaseCourses);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const categories = [
+    { id: "all", name: "All", icon: "✨" },
+    { id: "Frontend", name: "Frontend", icon: "🎨" },
+    { id: "Backend", name: "Backend", icon: "⚙️" },
+    { id: "AI/ML", name: "AI/ML", icon: "🤖" },
+    { id: "Programming", name: "Programming", icon: "💻" },
+    { id: "Full Stack", name: "Full Stack", icon: "🌐" },
+    { id: "DSA", name: "DSA", icon: "📊" },
+    { id: "DevOps", name: "DevOps", icon: "🚀" },
   ];
+
+  const filteredCourses = dbCourses.filter(course => {
+    const matchesSearch = course.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          course.subtitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          course.category?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === "all" || course.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const continuingCourses = filteredCourses.filter(c => c.progress > 0 && c.progress < 100);
+  const recommendedCourses = filteredCourses.filter(c => c.progress === 0).slice(0, 3);
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-[#f5f6fa]">
-        <Sidebar user={user} collapsed={sidebarCollapsed} onToggle={function() { setSidebarCollapsed(!sidebarCollapsed); }} />
+      <div className="flex h-screen bg-gradient-to-br from-purple-100 to-pink-100">
+        <Sidebar user={user} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#6c47ff] to-[#a78bfa] animate-pulse mx-auto mb-4 flex items-center justify-center text-2xl">📚</div>
-            <div className="flex gap-2 justify-center">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#6c47ff] animate-bounce"></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-[#6c47ff] animate-bounce" style={{ animationDelay: "0.15s" }}></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-[#6c47ff] animate-bounce" style={{ animationDelay: "0.3s" }}></div>
-            </div>
-            <p className="text-slate-500 text-sm mt-4">Loading courses...</p>
+            <div className="w-12 h-12 border-3 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <p className="text-slate-700 text-sm mt-3 font-medium">Loading courses...</p>
           </div>
         </main>
       </div>
@@ -75,123 +225,218 @@ export default function CourseLibrary() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f5f6fa]" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-purple-100 via-pink-100 to-orange-100">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Syne:wght@700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
         
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
-        @keyframes pulse_glow { 0%, 100% { box-shadow: 0 0 20px rgba(108,71,255,0.1); } 50% { box-shadow: 0 0 40px rgba(108,71,255,0.3); } }
+        .course-card {
+          transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          border-radius: 24px;
+        }
         
-        .animate-in { animation: fadeInUp 0.6s ease forwards; }
-        .course-card { animation: fadeIn 0.4s ease both; }
-        .course-card:hover { animation: pulse_glow 2s infinite; }
-        .hero-icon { animation: float 3s ease-in-out infinite; }
+        .course-card:hover {
+          transform: translateY(-6px);
+          box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.2);
+        }
         
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .progress-bar {
+          transition: width 0.5s ease;
+        }
+        
+        .curved-header {
+          border-radius: 20px 20px 30px 30px;
+        }
+        
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #8b5cf6, #ec4899); border-radius: 10px; }
       `}</style>
 
-      <Sidebar user={user} collapsed={sidebarCollapsed} onToggle={function() { setSidebarCollapsed(!sidebarCollapsed); }} />
+      <Sidebar user={user} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
 
       <main className="flex-1 overflow-y-auto">
-        {/* HERO BANNER */}
-        <div className="relative bg-gradient-to-br from-[#1a1f3c] via-[#2d3470] to-[#1e2d5a] px-12 py-14 flex items-center justify-between overflow-hidden min-h-[200px]">
-          <div className="absolute inset-0">
-            <div className="absolute w-96 h-96 bg-[#6c47ff]/10 rounded-full -top-20 -left-20 blur-3xl"></div>
-            <div className="absolute w-64 h-64 bg-[#3cc68a]/10 rounded-full bottom-0 right-20 blur-3xl"></div>
+        {/* Header */}
+        <div className="bg-white/80 backdrop-blur-md border-b border-white/20 px-6 py-5 sticky top-0 z-10 shadow-lg">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-3 py-1 rounded-full">✨ 2026 READY CURRICULUM ✨</span>
+              </div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-700 to-pink-700 bg-clip-text text-transparent mt-2" style={{ fontFamily: "'Inter', sans-serif" }}>
+                Course Library
+              </h1>
+              <p className="text-sm text-slate-600 mt-0.5">Learn skills that actually get you a job</p>
+            </div>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+              <input
+                type="text"
+                placeholder="Search courses..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-64 pl-9 pr-4 py-2 rounded-full bg-white/80 backdrop-blur border border-purple-200 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+              />
+            </div>
           </div>
-          <div className="relative z-10">
-            <span className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white text-xs font-bold px-5 py-2.5 rounded-full mb-4 border border-white/20">
-              <span className="w-2 h-2 rounded-full bg-[#3cc68a] animate-pulse"></span>
-              🚀 2026 READY CURRICULUM
-            </span>
-            <h1 className="text-white font-black text-5xl tracking-tight leading-none" style={{ fontFamily: "'Syne', sans-serif" }}>Course Library</h1>
-            <p className="text-white/60 text-lg mt-3 font-medium">Learn skills that actually get you a job</p>
-          </div>
-          <div className="hero-icon relative z-10 text-8xl select-none">⌨️</div>
         </div>
 
-        {/* COURSES GRID */}
-        <div className="px-8 py-10">
-          <div className="flex items-center justify-between mb-8 animate-in">
-            <div>
-              <h2 className="text-2xl font-bold text-[#1a1f3c]" style={{ fontFamily: "'Syne', sans-serif" }}>📚 All Courses</h2>
-              <p className="text-sm text-[#6b7280] mt-1">{courses.length} courses available for you</p>
-            </div>
-          </div>
-
-          {courses.length === 0 ? (
-            <div className="text-center py-20">
-              <span className="text-7xl block mb-6">📚</span>
-              <h3 className="text-xl font-bold text-[#1a1f3c] mb-2">No courses yet</h3>
-              <p className="text-[#6b7280]">Courses will appear here once added to the database.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-6">
-              {courses.map(function(course, i) {
-                var bg = bgGradients[i % bgGradients.length];
-                var color = colors[i % colors.length];
-                var progress = Math.floor(Math.random() * 60);
-                return (
-                  <div key={course.id} 
-                    onClick={function() { navigate("/student/courses/learn/" + course.id); }}
-                    className="course-card bg-white rounded-2xl border border-[#e5e7eb] cursor-pointer hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 overflow-hidden group"
-                    style={{ animationDelay: (i * 0.08) + 's' }}>
-                    
-                    {/* Card Thumbnail */}
-                    <div className="h-44 flex items-center justify-center text-6xl relative" style={{ background: bg }}>
-                      <span>{course.icon || "📚"}</span>
-                      <span className="absolute top-3 left-3 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5 text-[11px] font-bold text-[#6c47ff] shadow-sm">
-                        <span className="w-2 h-2 rounded-sm bg-[#6c47ff]"></span>Course
-                      </span>
-                      <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-[10px] font-bold text-[#1a1f3c] shadow-sm">
-                        {course.difficulty || "Beginner"}
-                      </span>
-                    </div>
-
-                    {/* Card Body */}
-                    <div className="p-5">
-                      <h3 className="font-bold text-[#1a1f3c] text-base mb-2 group-hover:text-[#6c47ff] transition-colors">
-                        {course.title}
-                      </h3>
-                      <p className="text-xs text-[#6b7280] mb-3">
-                        {course.category || "General"} • {course.duration || "20 hours"} • {course.totalTopics || 22} topics
-                      </p>
-                      
-                      {/* Tags */}
-                      <div className="flex flex-wrap gap-1.5 mb-4">
-                        {(course.tags || ["React", "Hooks", "State"]).slice(0, 4).map(function(tag: string) {
-                          return <span key={tag} className="text-[10px] bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-medium">{tag}</span>;
-                        })}
+        <div className="p-6 space-y-8">
+          {/* Continue Learning Section */}
+          {continuingCourses.length > 0 && (
+            <section>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm shadow-md">
+                  📖
+                </div>
+                <h2 className="text-lg font-bold text-slate-800">Continue Learning</h2>
+              </div>
+              <div className="space-y-4">
+                {continuingCourses.map((course) => (
+                  <div
+                    key={course.id}
+                    onClick={() => navigate("/student/courses/learn/" + course.id)}
+                    className={`course-card bg-gradient-to-br ${course.cardGradient || 'from-purple-50 to-pink-50'} border ${course.borderColor || 'border-purple-200'} p-4 cursor-pointer shadow-md`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${course.bgGradient || 'from-purple-600 to-pink-600'} flex items-center justify-center text-white text-2xl shadow-lg`}>
+                        {course.icon || "📚"}
                       </div>
-
-                      {/* Progress Bar */}
-                      <div className="flex items-center gap-2 text-xs mb-2">
-                        <strong className="text-[#1a1f3c]">{progress}%</strong>
-                        <span className="text-[#6b7280]">Completed</span>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-slate-800 text-base">{course.title}</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">{course.subtitle || course.description || "Course"}</p>
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className="text-[10px] font-semibold text-slate-600 bg-white/60 px-2 py-0.5 rounded-full">{course.difficulty || "Beginner"}</span>
+                          <span className="text-[10px] text-slate-500">{course.duration || "20h"}</span>
+                          <span className="text-[10px] text-emerald-600">👥 {course.students || "1k"} students</span>
+                        </div>
                       </div>
-                      <div className="h-1.5 bg-[#e5e7eb] rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-1000" style={{ width: progress + '%', background: color }}></div>
-                      </div>
-
-                      {/* Action */}
-                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#f3f4f6]">
-                        <span className="text-xs font-bold" style={{ color: color }}>{progress}% done</span>
-                        <span className="text-xs text-[#6b7280] group-hover:text-[#6c47ff] transition-colors font-semibold flex items-center gap-1">
-                          Start Learning <span className="text-lg leading-none">→</span>
-                        </span>
+                      <div className="text-right flex-shrink-0">
+                        <div className="flex items-center gap-1 mb-2">
+                          <span className="text-base font-bold text-purple-600">{course.progress}%</span>
+                          <span className="text-[10px] text-slate-400">completed</span>
+                        </div>
+                        <div className="w-32 h-2 bg-slate-200 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500 progress-bar" style={{ width: `${course.progress}%` }}></div>
+                        </div>
+                        <button className="mt-2 text-xs font-semibold text-purple-600 hover:text-purple-700 transition flex items-center gap-1">
+                          Continue Learning <span>→</span>
+                        </button>
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            </section>
           )}
+
+          {/* Recommended Section */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-white text-sm shadow-md">
+                  ⭐
+                </div>
+                <h2 className="text-lg font-bold text-slate-800">Recommended for you</h2>
+              </div>
+              <button className="text-xs font-semibold text-purple-600 hover:text-purple-700 transition">View All →</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {recommendedCourses.map((course) => (
+                <div
+                  key={course.id}
+                  onClick={() => navigate("/student/courses/learn/" + course.id)}
+                  className={`course-card bg-gradient-to-br ${course.cardGradient || 'from-purple-50 to-pink-50'} border ${course.borderColor || 'border-purple-200'} p-4 cursor-pointer shadow-md`}
+                >
+                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${course.bgGradient || 'from-purple-600 to-pink-600'} flex items-center justify-center text-white text-2xl shadow-lg mb-3`}>
+                    {course.icon || "📚"}
+                  </div>
+                  <h3 className="font-bold text-slate-800 text-base">{course.title}</h3>
+                  <p className="text-xs text-slate-500 mt-1 line-clamp-2">{course.subtitle || course.description || "Course"}</p>
+                  <div className="flex items-center gap-2 mt-3">
+                    <span className="text-[10px] font-semibold text-slate-600 bg-white/60 px-2 py-0.5 rounded-full">{course.difficulty || "Beginner"}</span>
+                    <span className="text-[10px] text-slate-500">{course.duration || "20h"}</span>
+                  </div>
+                  <button className="mt-3 text-xs font-semibold text-purple-600 hover:text-purple-700 transition flex items-center gap-1">
+                    Enroll Now <span>→</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* All Courses Section */}
+          <section>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-sm shadow-md">
+                📚
+              </div>
+              <h2 className="text-lg font-bold text-slate-800">All Courses</h2>
+              <span className="text-xs text-slate-500 bg-white/60 backdrop-blur px-2 py-0.5 rounded-full">{filteredCourses.length} courses</span>
+            </div>
+            
+            {filteredCourses.length === 0 ? (
+              <div className="text-center py-16 bg-white/50 backdrop-blur rounded-2xl border border-white/30">
+                <span className="text-5xl block mb-3">🔍</span>
+                <p className="text-slate-600 text-sm">No courses found</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {filteredCourses.map((course) => (
+                  <div
+                    key={course.id}
+                    onClick={() => navigate("/student/courses/learn/" + course.id)}
+                    className={`course-card bg-gradient-to-br ${course.cardGradient || 'from-purple-50 to-pink-50'} border ${course.borderColor || 'border-purple-200'} p-4 cursor-pointer shadow-md`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${course.bgGradient || 'from-purple-600 to-pink-600'} flex items-center justify-center text-white text-xl shadow-lg flex-shrink-0`}>
+                        {course.icon || "📚"}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-slate-800 text-sm line-clamp-1">{course.title}</h3>
+                        <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2">{course.subtitle || course.description || "Course"}</p>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <span className="text-[9px] font-semibold text-slate-600 bg-white/60 px-1.5 py-0.5 rounded-full">{course.difficulty || "Beginner"}</span>
+                          <span className="text-[9px] text-slate-500">{course.duration || "20h"}</span>
+                          <span className="text-[9px] text-emerald-600">👥 {course.students || "1k"}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {course.progress > 0 && (
+                      <div className="mt-3 pt-2">
+                        <div className="flex items-center justify-between text-[9px] mb-1">
+                          <span className="text-slate-500">Progress</span>
+                          <span className="font-semibold text-purple-600">{course.progress}%</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500 progress-bar" style={{ width: `${course.progress}%` }}></div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <button className={`mt-3 text-xs font-semibold transition flex items-center gap-1 ${course.progress > 0 ? 'text-purple-600' : 'text-purple-600'}`}>
+                      {course.progress > 0 ? 'Continue Learning' : 'Start Learning'}
+                      <span className="text-xs transition-transform group-hover:translate-x-0.5">→</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Footer */}
+          <div className="text-center pt-4 pb-2">
+            <p className="text-[10px] text-slate-500 flex items-center justify-center gap-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>
+              New courses added weekly
+              <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse"></span>
+              {dbCourses.length}+ courses available
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+            </p>
+          </div>
         </div>
       </main>
     </div>

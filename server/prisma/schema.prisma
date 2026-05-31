@@ -23,18 +23,26 @@ model User {
   placementStatus String  @default("Unplaced")
   procredits     Int      @default(0)
   
-  // NEW FIELDS for Company Details
+  // Company Details
   companyDescription String?
   companyWebsite    String?
   companyIndustry   String?
+  companyLocation   String?   // For employer location
+  
+  // Student Stats
+  streak           Int      @default(0)
+  consistencyScore Int      @default(0)
   
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   skills         Skill[]
   applications   JobApplication[]
   postedJobs     Job[]           @relation("postedByUser")
-  messagesSent   Message[]    @relation("Sender")
-  messagesRecv   Message[]    @relation("Receiver")
+  messagesSent   Message[]       @relation("Sender")
+  messagesRecv   Message[]       @relation("Receiver")
+  courseEnrollments CourseEnrollment[]
+  dailyTasks     DailyTask[]
+  leaderboardEntry LeaderboardEntry?
 }
 
 model OTP {
@@ -51,7 +59,7 @@ model OTP {
 model Skill {
   id        String @id @default(uuid())
   userId    String
-  user      User   @relation(fields: [userId], references: [id])
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
   score     Int    @default(0)
   category  String @default("Technical")
@@ -77,6 +85,7 @@ model Job {
   postedByUser  User             @relation("postedByUser", fields: [postedBy], references: [id])
   status        String           @default("pending")
   createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
   applications  JobApplication[]
 }
 
@@ -90,13 +99,13 @@ model JobApplication {
   studentEmail    String
   college         String
   department      String
-  resume          String?
+  resume          String?   // Store file path, not the actual PDF
+  resumeFileName  String?   // Original file name
   matchScore      Int      @default(0)
   status          String   @default("Applied")
   interviewStatus String?
   appliedAt       DateTime @default(now())
 }
-
 // ── MESSAGING ──
 model Message {
   id         String   @id @default(uuid())
@@ -104,21 +113,23 @@ model Message {
   sender     User     @relation("Sender", fields: [senderId], references: [id])
   receiverId String
   receiver   User     @relation("Receiver", fields: [receiverId], references: [id])
-  text       String
+  content    String   // Use 'content' not 'text'
   read       Boolean  @default(false)
   createdAt  DateTime @default(now())
 }
 
 // ── TASKS ──
 model DailyTask {
-  id       String   @id @default(uuid())
-  userId   String
-  time     String
-  task     String
-  type     String
-  duration String
-  done     Boolean  @default(false)
-  date     DateTime @default(now())
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskTime       String   // Changed from 'time'
+  taskName       String   // Changed from 'task'
+  taskType       String   // Changed from 'type'
+  durationMinutes Int     // Changed from 'duration'
+  isDone         Boolean  @default(false)
+  taskDate       DateTime @default(now())
+  createdAt      DateTime @default(now())
 }
 
 // ── ASSESSMENTS ──
@@ -136,7 +147,7 @@ model Assessment {
 model AssessmentQuestion {
   id             String     @id @default(uuid())
   assessmentId   String
-  assessment     Assessment @relation(fields: [assessmentId], references: [id])
+  assessment     Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   type           String
   questionText   String
   options        String?
@@ -149,9 +160,11 @@ model AssessmentQuestion {
 // ── LEADERBOARD ──
 model LeaderboardEntry {
   id        String   @id @default(uuid())
-  userId    String
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   credits   Int
-  trend     String   @default("same")
+  rank      Int      @default(0)
+  trend     String   @default("stable")
   updatedAt DateTime @updatedAt
 }
 
@@ -159,14 +172,16 @@ model LeaderboardEntry {
 model Course {
   id            String    @id @default(uuid())
   title         String
-  description   String
+  description   String?
   category      String
   difficulty    String
-  duration      String
-  totalModules  Int
-  accentColor   String
-  icon          String
+  duration      String?
+  totalTopics Int       @default(0)  // Change from totalTopics to totalModules
+  accentColor   String    @default("#10b981")
+  icon          String    @default("📚")
   thumbnailUrl  String?
+  college       String?
+  isFeatured    Boolean   @default(false)
   createdAt     DateTime  @default(now())
   modules       Module[]
   enrollments   CourseEnrollment[]
@@ -175,8 +190,9 @@ model Course {
 model CourseEnrollment {
   id              String   @id @default(uuid())
   userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   courseId        String
-  course          Course   @relation(fields: [courseId], references: [id])
+  course          Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   completedTopics Int      @default(0)
   progress        Int      @default(0)
   enrolledAt      DateTime @default(now())
@@ -185,13 +201,13 @@ model CourseEnrollment {
 model Module {
   id          String    @id @default(uuid())
   courseId    String
-  course      Course    @relation(fields: [courseId], references: [id])
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
   title       String
   orderIndex  Int
   duration    String
-  description String
-  videoUrl    String
-  videoDuration Int
+  description String?
+  videoUrl    String?
+  videoDuration Int?
   completedAt DateTime?
   topics      Topic[]
   createdAt   DateTime  @default(now())
@@ -200,7 +216,7 @@ model Module {
 model Topic {
   id          String   @id @default(uuid())
   moduleId    String
-  module      Module   @relation(fields: [moduleId], references: [id])
+  module      Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   title       String
   contentType String
   content     String?

@@ -17,7 +17,7 @@ async function main() {
       category: "Artificial Intelligence",
       difficulty: "Intermediate",
       duration: "24 hours",
-      totalModules: 5,
+      totalTopics: 5,
       accentColor: "#10B981",
       icon: "🤖",
       thumbnailUrl: "https://img.youtube.com/vi/5sLYAEBGTnw/0.jpg"

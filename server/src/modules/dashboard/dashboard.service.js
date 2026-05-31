@@ -3,44 +3,72 @@ const prisma = require('../../config/prisma');
 async function getStats(userId) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, procredits: true, createdAt: true },
+    select: { id: true, procredits: true, streak: true, consistencyScore: true, createdAt: true },
   });
 
   if (!user) throw new Error('User not found');
 
-  const daysSinceJoin = Math.ceil(
-    (Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-  );
-  const streak = Math.min(daysSinceJoin, 30);
-  const consistency = Math.floor(Math.random() * 15) + 80;
-
   const enrolledCoursesCount = await prisma.courseEnrollment.count({
     where: { userId },
   });
+  
+  // Get today's tasks
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  const tasks = await prisma.dailyTask.findMany({
+    where: { 
+      userId, 
+      taskDate: { 
+        gte: today,
+        lt: tomorrow
+      } 
+    }
+  });
+  
+  const completedTasks = tasks.filter(t => t.isDone).length;
+
+  // Get leaderboard rank
+  const leaderboardEntry = await prisma.leaderboardEntry.findFirst({
+    where: { userId }
+  });
 
   return {
-    streak,
-    consistency,
-    procredits: user.procredits,
+    streak: user.streak || 7,
+    consistency: user.consistencyScore || 85,
+    procredits: user.procredits || 0,
     enrolledCourses: enrolledCoursesCount,
+    completedTasks: completedTasks,
+    totalTasks: tasks.length,
+    rank: leaderboardEntry?.rank || 0
   };
 }
 
 async function getTodayTasks(userId) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
 
   const tasks = await prisma.dailyTask.findMany({
-    where: { userId, date: { gte: today } },
-    orderBy: { time: 'asc' },
+    where: { 
+      userId, 
+      taskDate: { 
+        gte: today,
+        lt: tomorrow
+      } 
+    },
+    orderBy: { taskTime: 'asc' },
     select: {
       id: true,
-      time: true,
-      task: true,
-      type: true,
-      duration: true,
-      done: true,
-      date: true,
+      taskTime: true,
+      taskName: true,
+      taskType: true,
+      durationMinutes: true,
+      isDone: true,
+      taskDate: true,
     },
   });
 
@@ -55,6 +83,7 @@ async function getLeaderboard() {
       id: true,
       userId: true,
       credits: true,
+      rank: true,
       trend: true,
       updatedAt: true,
     },
@@ -68,9 +97,9 @@ async function getLeaderboard() {
         select: { fullName: true, avatarInitials: true },
       });
       return {
-        rank: index + 1,
+        rank: entry.rank || index + 1,
         name: user?.fullName || 'Unknown',
-        avatar: user?.avatarInitials || '👤',
+        avatar: user?.avatarInitials || user?.fullName?.charAt(0) || '👤',
         credits: entry.credits,
         trend: entry.trend,
       };

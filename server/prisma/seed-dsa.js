@@ -17,7 +17,7 @@ async function main() {
       category: "Computer Science",
       difficulty: "Advanced",
       duration: "25 hours",
-      totalModules: 5,
+      totalTopics: 5,
       accentColor: "#EF4444",
       icon: "🧮",
       thumbnailUrl: "https://img.youtube.com/vi/8hly31xKli0/0.jpg"

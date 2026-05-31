@@ -3,6 +3,10 @@ var router = express.Router();
 var { PrismaClient } = require('@prisma/client');
 var prisma = new PrismaClient();
 var auth = require('../../middlewares/auth');
+var controller = require('./college.controller');
+var service = require('./college.service');
+
+// ========== EXISTING ROUTES ==========
 
 // GET /api/college/rankings - College rankings for employers
 router.get('/rankings', auth, async function(req, res) {
@@ -56,8 +60,7 @@ router.get('/rankings/detailed', auth, async function(req, res) {
   } catch (err) { console.error(err); res.json({ rankings: [] }); }
 });
 
-
-// ✅ GET /api/college/students — DIRECT Prisma query (like public-test)
+// GET /api/college/students — DIRECT Prisma query
 router.get('/students', auth, async function(req, res) {
   try {
     var students = await prisma.user.findMany({
@@ -91,12 +94,8 @@ router.get('/students', auth, async function(req, res) {
   }
 });
 
-// Debug route
-router.get('/debug', auth, async function(req, res) {
-  var tpoUser = await prisma.user.findUnique({ where: { id: req.user.id } });
-  res.json({ jwtData: { id: req.user.id, role: req.user.role }, dbCollege: tpoUser?.college, fullName: tpoUser?.fullName, email: tpoUser?.email });
-});
-router.get('/public-test',auth, async function(req, res) {
+// GET /api/college/public-test
+router.get('/public-test', auth, async function(req, res) {
   var students = await prisma.user.findMany({
     where: { role: 'STUDENT' },
     select: { 
@@ -113,4 +112,34 @@ router.get('/public-test',auth, async function(req, res) {
   var avgCredits = totalStudents > 0 ? Math.round(students.reduce(function(sum, s) { return sum + (s.procredits || 0); }, 0) / totalStudents) : 0;
   res.json({ students: students, stats: { totalStudents, totalPlaced, totalActive, avgCredits } });
 });
+
+// ========== NEW REPORTS ROUTE ==========
+// GET /api/college/reports - Get college reports data
+router.get('/reports', auth, async function(req, res) {
+  try {
+    if (req.user.role !== 'COLLEGE') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    var collegeName = req.user.college || 'AMSCE Chennai';
+    var reports = await service.getReports(collegeName);
+    res.json(reports);
+  } catch (err) {
+    console.error('❌ Reports error:', err);
+    res.status(500).json({ error: 'Failed to load reports' });
+  }
+});
+
+// ========== OTHER CONTROLLER ROUTES ==========
+router.get('/dashboard', auth, controller.getDashboard);
+router.get('/companies', auth, controller.getCompanies);
+router.get('/drives', auth, controller.getDrives);
+router.get('/messages', auth, controller.getMessages);
+
+// Debug route
+router.get('/debug', auth, async function(req, res) {
+  var tpoUser = await prisma.user.findUnique({ where: { id: req.user.id } });
+  res.json({ jwtData: { id: req.user.id, role: req.user.role }, dbCollege: tpoUser?.college, fullName: tpoUser?.fullName, email: tpoUser?.email });
+});
+
 module.exports = router;

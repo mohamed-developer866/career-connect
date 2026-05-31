@@ -45,6 +45,12 @@ app.use('/api/broadcast', broadcastRoutes);
 const applicationRoutes = require('./modules/applications/application.routes');
 app.use('/api/applications', applicationRoutes);
 
+const employerAnalyticsRoutes = require('./modules/employer/analytics.routes');
+app.use('/api/employer', employerAnalyticsRoutes);
+
+const analyticsRoutes = require('./modules/analytics/analytics.routes');
+app.use('/api/analytics', analyticsRoutes);
+
 //var collegeStudentRoutes = require('./modules/college/students.routes');
 //app.use('/api/college/students', collegeStudentRoutes);
 

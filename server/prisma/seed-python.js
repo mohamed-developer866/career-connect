@@ -17,7 +17,7 @@ async function main() {
       category: "Data Science",
       difficulty: "Beginner",
       duration: "20 hours",
-      totalModules: 4,
+      totalTopics: 4,
       accentColor: "#8B5CF6",
       icon: "🐍",
       thumbnailUrl: "https://img.youtube.com/vi/rfscVS0vtbw/0.jpg"

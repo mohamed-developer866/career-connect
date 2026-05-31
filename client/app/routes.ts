@@ -7,6 +7,7 @@ export default [
   // STUDENT ROUTES
   layout("layouts/StudentLayout.tsx", [
     route("student", "routes/student/route.tsx"),
+    route("student/analytics", "routes/student/analytics/route.tsx"),
     route("student/jobs", "routes/student/jobs/route.tsx"),
     route("student/chat", "routes/student/chat/route.tsx"),
     route("student/courses", "routes/student/courses/route.tsx"),
@@ -29,17 +30,20 @@ export default [
     route("employer/jobs", "routes/employer/jobs/route.tsx"),
     route("employer/messages/*", "routes/employer/messages/route.tsx"),
     route("employer/jobs/new", "routes/employer/jobs/new/route.tsx"),
-    route("employer/applicants", "routes/employer/applicants/route.tsx"),
+    route("employer/applicants", "routes/employer/applicants/route.tsx"),  // ✅ ADD THIS
     route("employer/rankings", "routes/employer/rankings/route.tsx"),
+    route("employer/analytics", "routes/employer/analytics/route.tsx"),
+    route("employer/employerapplications", "routes/employer/employerapplications/employerapplications.tsx"),
   ]),
 
-    // COLLEGE TPO ROUTES (separate layout!)
+  // COLLEGE TPO ROUTES
   layout("layouts/CollegeLayout.tsx", [
     route("college", "routes/college/route.tsx"),
     route("college/messages/*", "routes/college/messages/route.tsx"),
     route("college/companies", "routes/college/companies/route.tsx"),
     route("college/broadcast", "routes/college/broadcast/route.tsx"),
     route("college/students", "routes/college/students/route.tsx"),
+    route("college/reports", "routes/college/reports/route.tsx"),
   ]),
 
   // ADMIN

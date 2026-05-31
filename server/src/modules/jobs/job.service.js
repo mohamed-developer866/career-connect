@@ -1,7 +1,6 @@
 const prisma = require('../../config/prisma');
 
 async function getJobs(filters = {}) {
-  // FIXED: Change 'active' to 'approved'
   const where = { status: 'approved' };
   
   if (filters.type) where.type = filters.type;
@@ -19,7 +18,10 @@ async function getJobs(filters = {}) {
 }
 
 async function getJobById(id) {
-  return prisma.job.findUnique({ where: { id } });
+  return prisma.job.findUnique({ 
+    where: { id },
+    include: { applications: true }
+  });
 }
 
 async function createJob(data) {

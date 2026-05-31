@@ -17,7 +17,7 @@ async function main() {
       category: "Web Development",
       difficulty: "Advanced",
       duration: "30 hours",
-      totalModules: 5,
+      totalTopics: 5,
       accentColor: "#F59E0B",
       icon: "🌐",
       thumbnailUrl: "https://img.youtube.com/vi/nu_pCVPKzTk/0.jpg"

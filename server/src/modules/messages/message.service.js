@@ -21,15 +21,11 @@ async function getConversations(userId) {
   for (var m of [...sent, ...received]) {
     var otherId = m.senderId === userId ? m.receiverId : m.senderId;
     
-    // SKIP if the other user is the same as current user
     if (otherId === userId) continue;
-    
     if (seen.has(otherId)) continue;
     seen.add(otherId);
 
     var otherUser = await prisma.user.findUnique({ where: { id: otherId } });
-    
-    // SKIP if other user not found
     if (!otherUser) continue;
 
     var unread = await prisma.message.count({
@@ -52,7 +48,7 @@ async function getConversations(userId) {
       role: otherUser.role || 'USER',
       college: otherUser.college,
       company: otherUser.company,
-      lastMessage: lastMsg?.text || '',
+      lastMessage: lastMsg?.content || '',
       time: lastMsg?.createdAt || new Date(),
       unread: unread
     });
@@ -69,7 +65,7 @@ async function getMessages(userId, otherId) {
     data: { read: true }
   });
 
-  return await prisma.message.findMany({
+  var messages = await prisma.message.findMany({
     where: {
       OR: [
         { senderId: userId, receiverId: otherId },
@@ -79,13 +75,31 @@ async function getMessages(userId, otherId) {
     orderBy: { createdAt: 'asc' },
     take: 100
   });
+  
+  // Add a 'text' field for frontend compatibility
+  return messages.map(function(msg) {
+    return {
+      ...msg,
+      text: msg.content  // Add text field for frontend that expects 'text'
+    };
+  });
 }
 
 // Send a message
-async function sendMessage(senderId, receiverId, text) {
-  return await prisma.message.create({
-    data: { senderId, receiverId, text }
+async function sendMessage(senderId, receiverId, content) {
+  var msg = await prisma.message.create({
+    data: { 
+      senderId, 
+      receiverId, 
+      content
+    }
   });
+  
+  // Add text field for frontend compatibility
+  return {
+    ...msg,
+    text: msg.content
+  };
 }
 
 // Delete a message (only by sender)

@@ -17,7 +17,7 @@ async function main() {
       category: "Backend Development",
       difficulty: "Intermediate",
       duration: "22 hours",
-      totalModules: 4,
+      totalTopics: 4,
       accentColor: "#3cc68a",
       icon: "🟢",
       thumbnailUrl: "https://img.youtube.com/vi/Oe421EPjeBE/0.jpg"

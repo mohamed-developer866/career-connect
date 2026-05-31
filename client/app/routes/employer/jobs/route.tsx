@@ -6,6 +6,7 @@ export default function MyJobs() {
   var [jobs, setJobs] = useState<any[]>([]);
   var [loading, setLoading] = useState(true);
   var [selectedJob, setSelectedJob] = useState<any>(null);
+  var [filter, setFilter] = useState<"all" | "approved" | "pending" | "rejected">("all");
 
   useEffect(function() { loadJobs(); }, []);
 
@@ -14,7 +15,10 @@ export default function MyJobs() {
     var res = await fetch("http://localhost:5000/api/jobs/employer", {
       headers: { Authorization: "Bearer " + token }
     });
-    if (res.ok) setJobs((await res.json()).jobs || []);
+    if (res.ok) {
+      var data = await res.json();
+      setJobs(data.jobs || []);
+    }
     setLoading(false);
   };
 
@@ -29,149 +33,229 @@ export default function MyJobs() {
     loadJobs();
   };
 
+  var filteredJobs = jobs.filter(job => {
+    if (filter === "all") return true;
+    return job.status === filter;
+  });
+
+  var getStatusColor = function(status: string) {
+    switch(status) {
+      case "approved": return { bg: "bg-emerald-600", text: "text-white", icon: "✅", label: "Approved" };
+      case "pending": return { bg: "bg-amber-500", text: "text-white", icon: "⏳", label: "Pending" };
+      case "rejected": return { bg: "bg-red-600", text: "text-white", icon: "❌", label: "Rejected" };
+      default: return { bg: "bg-gray-500", text: "text-white", icon: "📋", label: "Draft" };
+    }
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
         <div className="text-center">
-          <div className="relative w-20 h-20 mx-auto mb-6">
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-violet-500 to-purple-500 animate-spin" style={{animationDuration: '2s'}}></div>
-            <div className="absolute inset-1 rounded-xl bg-white flex items-center justify-center">
-              <span className="text-2xl">💼</span>
+          <div className="relative w-16 h-16 mx-auto mb-4">
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 animate-spin" style={{animationDuration: '2s'}}></div>
+            <div className="absolute inset-1 rounded-lg bg-white flex items-center justify-center">
+              <span className="text-xl">💼</span>
             </div>
           </div>
-          <p className="text-violet-600 font-bold animate-pulse">Loading Jobs...</p>
+          <p className="text-indigo-600 font-medium text-sm animate-pulse">Loading Jobs...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Syne:wght@600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
-        @keyframes floatIn { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
-        @keyframes slideUp { 0% { opacity: 0; transform: translateY(30px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
-        @keyframes pulseGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(108,71,255,0.3); } 50% { box-shadow: 0 0 0 12px rgba(108,71,255,0); } }
-        .float-in { animation: floatIn 0.5s ease both; }
-        .slide-up { animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
-        .premium-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .premium-card:hover { transform: translateY(-4px); box-shadow: 0 20px 50px rgba(108,71,255,0.12); border-color: #c4b5fd; }
-        .gradient-text { background: linear-gradient(135deg, #7c3aed, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        @keyframes slideUp {
+          0% { opacity: 0; transform: translateY(15px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        
+        .slide-up { animation: slideUp 0.3s ease both; }
+        .job-card { transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1); }
+        .job-card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -12px rgba(0, 0, 0, 0.12); }
+        
+        .job-card-approved { border-left: 3px solid #059669; }
+        .job-card-pending { border-left: 3px solid #d97706; }
+        .job-card-rejected { border-left: 3px solid #dc2626; }
+        
+        .filter-active {
+          background: linear-gradient(135deg, #4f46e5, #7c3aed);
+          color: white;
+          box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+        }
+        
+        .filter-inactive {
+          background: white;
+          color: #4b5563;
+          border: 1px solid #e5e7eb;
+        }
+        
+        .filter-inactive:hover {
+          background: #f5f3ff;
+          border-color: #8b5cf6;
+          color: #7c3aed;
+        }
+        
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
       `}</style>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-5 py-6">
         
         {/* HEADER */}
-        <div className="flex items-center justify-between mb-10 float-in">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-xl shadow-purple-200" style={{animation: 'pulseGlow 2s infinite'}}>
-              <span className="text-2xl">💼</span>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-5 slide-up">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md">
+              <span className="text-lg">💼</span>
             </div>
             <div>
-              <h1 className="text-4xl font-extrabold text-gray-900" style={{ fontFamily: "'Syne', sans-serif" }}>
-                <span className="gradient-text">My Jobs</span>
+              <h1 className="text-xl font-bold text-slate-800" style={{ fontFamily: "'Syne', sans-serif" }}>
+                My Jobs
               </h1>
-              <p className="text-gray-500 text-sm mt-1 font-medium">{jobs.length} jobs posted</p>
+              <p className="text-xs text-slate-500 mt-0.5">{jobs.length} jobs posted • {jobs.filter(j => j.status === 'approved').length} active</p>
             </div>
           </div>
-          <button onClick={function(){navigate("/employer/jobs/new")}}
-            className="px-6 py-3.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-sm font-bold rounded-2xl hover:shadow-xl hover:shadow-purple-200 transition-all flex items-center gap-2">
-            <span className="text-lg">+</span> Post New Job
+          <button onClick={() => navigate("/employer/jobs/new")}
+            className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-xs font-semibold rounded-lg hover:shadow-md transition-all flex items-center gap-1.5">
+            <span className="text-base">+</span> Post New Job
           </button>
         </div>
 
-        {/* JOBS LIST */}
-        {jobs.length === 0 ? (
-          <div className="bg-white rounded-3xl border-2 border-dashed border-gray-200 p-16 text-center float-in">
-            <div className="w-20 h-20 rounded-2xl bg-violet-50 flex items-center justify-center mx-auto mb-6">
-              <span className="text-4xl">📋</span>
-            </div>
-            <h2 className="text-xl font-extrabold text-gray-900 mb-2" style={{ fontFamily: "'Syne', sans-serif" }}>No Jobs Posted Yet</h2>
-            <p className="text-gray-500 mb-6">Create your first job listing to start receiving applications</p>
-            <button onClick={function(){navigate("/employer/jobs/new")}}
-              className="px-8 py-3.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white font-bold rounded-2xl hover:shadow-xl transition-all">
-              🚀 Post Your First Job
+        {/* FILTER TABS */}
+        <div className="flex gap-2 mb-5 slide-up">
+          {[
+            { id: "all", label: "All", icon: "📋", count: jobs.length },
+            { id: "approved", label: "Approved", icon: "✅", count: jobs.filter(j => j.status === 'approved').length },
+            { id: "pending", label: "Pending", icon: "⏳", count: jobs.filter(j => j.status === 'pending').length },
+            { id: "rejected", label: "Rejected", icon: "❌", count: jobs.filter(j => j.status === 'rejected').length }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setFilter(tab.id as any)}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all flex items-center gap-1.5 ${
+                filter === tab.id
+                  ? "filter-active"
+                  : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
+              }`}
+            >
+              {tab.icon} {tab.label}
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${
+                filter === tab.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+              }`}>
+                {tab.count}
+              </span>
             </button>
+          ))}
+        </div>
+
+        {/* JOBS LIST */}
+        {filteredJobs.length === 0 ? (
+          <div className="bg-white rounded-xl border-2 border-dashed border-indigo-200 p-8 text-center slide-up">
+            <div className="w-14 h-14 rounded-xl bg-indigo-50 flex items-center justify-center mx-auto mb-3">
+              <span className="text-2xl">📋</span>
+            </div>
+            <h2 className="text-base font-bold text-slate-700 mb-1">No Jobs Found</h2>
+            <p className="text-xs text-slate-400 mb-3">
+              {filter === "all" ? "You haven't posted any jobs yet" : `No ${filter} jobs found`}
+            </p>
+            {filter === "all" && (
+              <button onClick={() => navigate("/employer/jobs/new")}
+                className="px-4 py-1.5 bg-indigo-500 text-white text-xs font-semibold rounded-lg hover:bg-indigo-600 transition-all">
+                Post Your First Job
+              </button>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {jobs.map(function(job: any, i: number) {
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {filteredJobs.map(function(job: any, i: number) {
               var apps = job.applications || [];
               var shortlisted = apps.filter(function(a: any) { return a.status === 'Shortlisted'; }).length;
-              var hired = apps.filter(function(a: any) { return a.status === 'Selected'; }).length;
+              var hired = apps.filter(function(a: any) { return a.status === 'HIRED'; }).length;
+              var statusInfo = getStatusColor(job.status);
+              var daysLeft = Math.ceil((new Date(job.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+              var cardClass = job.status === "approved" ? "job-card-approved" : job.status === "pending" ? "job-card-pending" : job.status === "rejected" ? "job-card-rejected" : "";
+              
               return (
-                <div key={job.id} className="premium-card slide-up bg-white rounded-2xl border-2 border-gray-100 p-6 cursor-pointer relative overflow-hidden group" 
-                  style={{animationDelay: (i*0.08)+'s'}}
-                  onClick={function(){setSelectedJob(job)}}>
+                <div key={job.id} className={`job-card bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden cursor-pointer group ${cardClass}`}
+                  style={{ animationDelay: `${i * 0.05}s` }}
+                  onClick={() => setSelectedJob(job)}>
                   
-                  {/* Gradient top bar */}
-                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-violet-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-
-                  {/* Status Badge - Top Right */}
-                  <div className="absolute top-5 right-5">
-                    <span className={"text-[10px] font-bold px-3 py-1.5 rounded-full border " + 
-                      (job.status === "approved" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : 
-                       job.status === "pending" ? "bg-amber-50 text-amber-700 border-amber-200" : 
-                       "bg-red-50 text-red-700 border-red-200")}>
-                      {job.status === "approved" ? "✅ Approved" : job.status === "pending" ? "⏳ Pending" : "❌ Rejected"}
-                    </span>
-                  </div>
-
-                  {/* Company + Title */}
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center text-white font-extrabold text-xl shadow-lg flex-shrink-0">
-                      {(job.company || "C").charAt(0)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-extrabold text-gray-900 truncate" style={{ fontFamily: "'Syne', sans-serif" }}>{job.title}</h3>
-                      <p className="text-sm text-gray-500 font-medium">{job.company} • {job.location}</p>
+                  {/* Card Header - Smaller */}
+                  <div className="p-3 border-b border-slate-100">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm shadow-sm flex-shrink-0">
+                          {job.company?.charAt(0) || "C"}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-slate-800 text-sm line-clamp-1">{job.title}</h3>
+                          <p className="text-[9px] text-slate-500">{job.company} • {job.location}</p>
+                        </div>
+                      </div>
+                      <div className={`text-[9px] font-semibold px-2 py-0.5 rounded-full ${statusInfo.bg} ${statusInfo.text} shadow-sm flex items-center gap-1`}>
+                        {statusInfo.icon} {statusInfo.label}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Quick Stats Grid */}
-                  <div className="grid grid-cols-4 gap-3 mb-4">
-                    <div className="bg-violet-50 rounded-xl p-3 text-center">
-                      <p className="text-base font-extrabold text-violet-600" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>₹{(job.salaryMin/100000).toFixed(0)}L</p>
-                      <p className="text-[9px] text-violet-400 font-bold uppercase">Salary</p>
+                  {/* Card Body - Smaller */}
+                  <div className="p-3">
+                    {/* Quick Stats - Smaller */}
+                    <div className="grid grid-cols-4 gap-2 mb-3">
+                      <div className="text-center bg-slate-50 rounded-md p-1.5">
+                        <p className="text-sm font-bold text-indigo-600">₹{(job.salaryMin/100000).toFixed(0)}L</p>
+                        <p className="text-[8px] text-slate-500 font-medium uppercase">Salary</p>
+                      </div>
+                      <div className="text-center bg-slate-50 rounded-md p-1.5">
+                        <p className="text-sm font-bold text-emerald-600">{apps.length}</p>
+                        <p className="text-[8px] text-slate-500 font-medium uppercase">Applied</p>
+                      </div>
+                      <div className="text-center bg-slate-50 rounded-md p-1.5">
+                        <p className="text-sm font-bold text-amber-600">{shortlisted}</p>
+                        <p className="text-[8px] text-slate-500 font-medium uppercase">Shortlist</p>
+                      </div>
+                      <div className="text-center bg-slate-50 rounded-md p-1.5">
+                        <p className="text-sm font-bold text-purple-600">{hired}</p>
+                        <p className="text-[8px] text-slate-500 font-medium uppercase">Hired</p>
+                      </div>
                     </div>
-                    <div className="bg-emerald-50 rounded-xl p-3 text-center">
-                      <p className="text-base font-extrabold text-emerald-600" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{apps.length}</p>
-                      <p className="text-[9px] text-emerald-400 font-bold uppercase">Applied</p>
-                    </div>
-                    <div className="bg-amber-50 rounded-xl p-3 text-center">
-                      <p className="text-base font-extrabold text-amber-600" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{shortlisted}</p>
-                      <p className="text-[9px] text-amber-400 font-bold uppercase">Shortlist</p>
-                    </div>
-                    <div className="bg-sky-50 rounded-xl p-3 text-center">
-                      <p className="text-base font-extrabold text-sky-600" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{hired}</p>
-                      <p className="text-[9px] text-sky-400 font-bold uppercase">Hired</p>
-                    </div>
-                  </div>
 
-                  {/* Skills */}
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {(job.skills || "").split(',').slice(0, 5).map(function(skill: string) {
-                      return <span key={skill} className="text-[10px] bg-violet-50 text-violet-600 px-2.5 py-1 rounded-full font-semibold border border-violet-100">{skill.trim()}</span>;
-                    })}
-                    {(job.skills || "").split(',').length > 5 && <span className="text-[10px] text-gray-400 px-2 py-1">+more</span>}
-                  </div>
+                    {/* Skills - Smaller */}
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {(job.skills || "").split(',').slice(0, 3).map(function(skill: string) {
+                        return <span key={skill} className="text-[8px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">{skill.trim()}</span>;
+                      })}
+                      {(job.skills || "").split(',').length > 3 && (
+                        <span className="text-[8px] text-slate-400">+{job.skills.split(',').length - 3}</span>
+                      )}
+                    </div>
 
-                  {/* Deadline */}
-                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-3">
-                    <span>📅</span>
-                    <span>Deadline: <strong className="text-gray-700">{new Date(job.deadline).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</strong></span>
-                  </div>
+                    {/* Deadline - Smaller */}
+                    <div className="flex items-center justify-between text-[9px] text-slate-500 mb-3">
+                      <span className="flex items-center gap-1">📅 {new Date(job.deadline).toLocaleDateString()}</span>
+                      {daysLeft > 0 ? (
+                        <span className={`px-1.5 py-0.5 rounded-full ${daysLeft <= 3 ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-600'}`}>
+                          {daysLeft} days left
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">Expired</span>
+                      )}
+                    </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex gap-2 pt-3 border-t border-gray-100">
-                    <button onClick={function(e: any){e.stopPropagation(); setSelectedJob(job);}}
-                      className="flex-1 py-2.5 bg-violet-50 text-violet-700 text-xs font-bold rounded-xl hover:bg-violet-100 transition-all border border-violet-200">
-                      👥 View Applicants ({apps.length})
-                    </button>
-                    <button onClick={function(e: any){e.stopPropagation(); deleteJob(job.id);}}
-                      className="px-4 py-2.5 bg-red-50 text-red-500 text-xs font-bold rounded-xl hover:bg-red-100 transition-all border border-red-200">
-                      🗑️
-                    </button>
+                    {/* Actions - Smaller */}
+                    <div className="flex gap-2 pt-2 border-t border-slate-100">
+                      <button className="flex-1 py-1.5 text-[9px] font-semibold text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100 transition-all">
+                        View Applicants ({apps.length})
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); deleteJob(job.id); }}
+                        className="px-3 py-1.5 text-[9px] font-semibold text-red-600 bg-red-50 rounded-md hover:bg-red-100 transition-all">
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -180,75 +264,102 @@ export default function MyJobs() {
         )}
       </div>
 
-      {/* JOB DETAIL MODAL */}
+      {/* JOB DETAIL MODAL - Smaller */}
       {selectedJob && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={function(){setSelectedJob(null);}}>
-          <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[85vh] overflow-y-auto p-8 shadow-2xl slide-up" onClick={function(e: any){e.stopPropagation();}}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedJob(null)}>
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-xl" onClick={(e) => e.stopPropagation()}>
             
-            {/* Header */}
-            <div className="flex items-start justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-extrabold text-2xl shadow-xl">
-                  {(selectedJob.company || "C").charAt(0)}
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b border-slate-100 p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-base font-bold shadow-md">
+                    {selectedJob.company?.charAt(0) || "C"}
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-slate-800">{selectedJob.title}</h2>
+                    <p className="text-xs text-indigo-600 font-semibold">{selectedJob.company}</p>
+                    <p className="text-[10px] text-slate-500">{selectedJob.location} • {selectedJob.type}</p>
+                  </div>
                 </div>
+                <button onClick={() => setSelectedJob(null)} className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 text-sm">✕</button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 space-y-4">
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-slate-100 rounded-lg p-3 text-center">
+                  <p className="text-sm font-bold text-indigo-700">₹{(selectedJob.salaryMin/100000).toFixed(1)}L-{(selectedJob.salaryMax/100000).toFixed(1)}L</p>
+                  <p className="text-[9px] text-slate-500 font-semibold uppercase">Salary</p>
+                </div>
+                <div className="bg-slate-100 rounded-lg p-3 text-center">
+                  <p className="text-sm font-bold text-emerald-700">{(selectedJob.applications || []).length}</p>
+                  <p className="text-[9px] text-slate-500 font-semibold uppercase">Applicants</p>
+                </div>
+                <div className="bg-slate-100 rounded-lg p-3 text-center">
+                  <p className="text-sm font-bold text-amber-700">{new Date(selectedJob.deadline).toLocaleDateString()}</p>
+                  <p className="text-[9px] text-slate-500 font-semibold uppercase">Deadline</p>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <h3 className="text-[10px] font-semibold text-slate-700 mb-1 uppercase">Description</h3>
+                <p className="text-xs text-slate-600 leading-relaxed bg-slate-100 rounded-lg p-3">{selectedJob.description}</p>
+              </div>
+
+              {/* Requirements */}
+              {selectedJob.requirements && (
                 <div>
-                  <h2 className="text-2xl font-extrabold text-gray-900" style={{ fontFamily: "'Syne', sans-serif" }}>{selectedJob.title}</h2>
-                  <p className="text-violet-600 font-semibold">{selectedJob.company}</p>
-                  <p className="text-sm text-gray-500">{selectedJob.location} • {selectedJob.type}</p>
+                  <h3 className="text-[10px] font-semibold text-slate-700 mb-1 uppercase">Requirements</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed bg-slate-100 rounded-lg p-3 whitespace-pre-line">{selectedJob.requirements}</p>
+                </div>
+              )}
+
+              {/* Skills */}
+              <div>
+                <h3 className="text-[10px] font-semibold text-slate-700 mb-1 uppercase">Skills</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {(selectedJob.skills || "").split(',').map(function(skill: string) {
+                    return <span key={skill} className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-md text-[9px] font-medium">{skill.trim()}</span>;
+                  })}
                 </div>
               </div>
-              <button onClick={function(){setSelectedJob(null);}} className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-all">✕</button>
+
+              {/* Applicants List */}
+              {(selectedJob.applications || []).length > 0 && (
+                <div>
+                  <h3 className="text-[10px] font-semibold text-slate-700 mb-1 uppercase">Recent Applicants</h3>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {(selectedJob.applications || []).slice(0, 5).map((app: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-slate-100 rounded-lg">
+                        <div>
+                          <p className="text-xs font-medium text-slate-700">{app.student?.fullName || app.studentName}</p>
+                          <p className="text-[9px] text-slate-500">{app.student?.email || app.studentEmail}</p>
+                        </div>
+                        <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full ${
+                          app.status === 'HIRED' ? 'bg-emerald-100 text-emerald-700' :
+                          app.status === 'Shortlisted' ? 'bg-amber-100 text-amber-700' :
+                          'bg-slate-200 text-slate-700'
+                        }`}>
+                          {app.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Salary + Deadline */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-2xl p-4 text-center border border-violet-100">
-                <p className="text-xl font-extrabold text-violet-700" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>₹{(selectedJob.salaryMin/100000).toFixed(1)}L - ₹{(selectedJob.salaryMax/100000).toFixed(1)}L</p>
-                <p className="text-[10px] text-violet-400 font-bold uppercase">Salary Range</p>
-              </div>
-              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-4 text-center border border-emerald-100">
-                <p className="text-xl font-extrabold text-emerald-700" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{(selectedJob.applications || []).length}</p>
-                <p className="text-[10px] text-emerald-400 font-bold uppercase">Applicants</p>
-              </div>
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-4 text-center border border-amber-100">
-                <p className="text-xl font-extrabold text-amber-700" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{new Date(selectedJob.deadline).toLocaleDateString()}</p>
-                <p className="text-[10px] text-amber-400 font-bold uppercase">Deadline</p>
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="mb-6">
-              <h3 className="text-sm font-extrabold text-gray-900 uppercase tracking-wider mb-3">📝 Description</h3>
-              <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 rounded-2xl p-5">{selectedJob.description}</p>
-            </div>
-
-            {/* Requirements */}
-            {selectedJob.requirements && (
-              <div className="mb-6">
-                <h3 className="text-sm font-extrabold text-gray-900 uppercase tracking-wider mb-3">📋 Requirements</h3>
-                <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 rounded-2xl p-5 whitespace-pre-line">{selectedJob.requirements}</p>
-              </div>
-            )}
-
-            {/* Skills */}
-            <div className="mb-6">
-              <h3 className="text-sm font-extrabold text-gray-900 uppercase tracking-wider mb-3">🛠️ Skills</h3>
-              <div className="flex flex-wrap gap-2">
-                {(selectedJob.skills || "").split(',').map(function(skill: string) {
-                  return <span key={skill} className="px-4 py-2 bg-violet-50 text-violet-700 rounded-xl text-sm font-bold border border-violet-100">{skill.trim()}</span>;
-                })}
-              </div>
-            </div>
-
-            {/* Action */}
-            <div className="flex gap-3 pt-4 border-t border-gray-100">
-              <button onClick={function(){setSelectedJob(null);}}
-                className="flex-1 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-all">
+            {/* Modal Footer */}
+            <div className="sticky bottom-0 bg-white border-t border-slate-100 p-4 flex gap-3">
+              <button onClick={() => setSelectedJob(null)} className="flex-1 py-2 border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-all">
                 Close
               </button>
-              <button onClick={function(){deleteJob(selectedJob.id);}}
-                className="px-6 py-3 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition-all shadow-lg">
-                🗑️ Delete Job
+              <button onClick={() => deleteJob(selectedJob.id)} className="flex-1 py-2 bg-red-500 text-white text-xs font-semibold rounded-lg hover:bg-red-600 transition-all">
+                Delete Job
               </button>
             </div>
           </div>

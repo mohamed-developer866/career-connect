@@ -18,20 +18,38 @@ exports.getMessages = async function(req, res) {
   }
 };
 
+// FIXED: Support both 'content' and 'text' from frontend
 exports.sendMessage = async function(req, res) {
   try {
-    var msg = await service.sendMessage(req.user.id, req.body.receiverId, req.body.text);
+    // Support both field names
+    var messageContent = req.body.content || req.body.text;
+    
+    if (!messageContent) {
+      return res.status(400).json({ error: 'Message content is required' });
+    }
+    
+    console.log('Sending message:', { 
+      from: req.user.id, 
+      to: req.body.receiverId, 
+      content: messageContent 
+    });
+    
+    var msg = await service.sendMessage(req.user.id, req.body.receiverId, messageContent);
     
     // Emit to BOTH sender and receiver for true real-time
     var io = req.app.get('io');
-    io.to(req.body.receiverId).emit('newMessage', msg);
-    io.to(req.user.id).emit('newMessage', msg);
+    if (io) {
+      io.to(req.body.receiverId).emit('newMessage', msg);
+      io.to(req.user.id).emit('newMessage', msg);
+    }
     
     res.status(201).json(msg);
   } catch (err) {
+    console.error('Send message error:', err);
     res.status(500).json({ error: err.message });
   }
 };
+
 exports.deleteMessage = async function(req, res) {
   try {
     var result = await service.deleteMessage(req.params.messageId, req.user.id);

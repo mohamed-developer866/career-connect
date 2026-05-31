@@ -10,43 +10,80 @@ router.get('/stats', auth, async function(req, res) {
     var userId = req.user.id;
     
     var enrollments = await prisma.courseEnrollment.findMany({ where: { userId: userId } });
-    var tasks = await prisma.dailyTask.findMany({ where: { userId: userId, date: { gte: new Date(new Date().setHours(0,0,0,0)) } } });
-    var completedTasks = tasks.filter(function(t) { return t.done; }).length;
+    
+    // Fix: Use correct field names - taskDate, isDone
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    var tasks = await prisma.dailyTask.findMany({ 
+      where: { 
+        userId: userId, 
+        taskDate: { 
+          gte: today,
+          lt: tomorrow
+        } 
+      } 
+    });
+    
+    var completedTasks = tasks.filter(function(t) { return t.isDone; }).length;
     var leaderboard = await prisma.leaderboardEntry.findFirst({ where: { userId: userId } });
     
     res.json({
-      streak: 7,
-      consistency: Math.floor(Math.random() * 20) + 80,
+      streak: req.user.streak || 7,
+      consistency: req.user.consistencyScore || 85,
       procredits: req.user.procredits || 0,
       enrolledCourses: enrollments.length,
       completedTasks: completedTasks,
       totalTasks: tasks.length,
-      rank: leaderboard ? (await prisma.leaderboardEntry.count({ where: { credits: { gt: leaderboard.credits } } })) + 1 : 0
+      rank: leaderboard ? leaderboard.rank : 0
     });
   } catch (err) {
+    console.error(err);
     res.json({ streak: 0, consistency: 0, procredits: 0, enrolledCourses: 0, completedTasks: 0, totalTasks: 0, rank: 0 });
   }
 });
 
-// GET /api/dashboard/tasks
+// GET /api/dashboard/tasks - FIXED field names
 router.get('/tasks', auth, async function(req, res) {
   try {
     var userId = req.user.id;
+    
+    // Get today's date range
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
     var tasks = await prisma.dailyTask.findMany({
-      where: { userId: userId },
-      orderBy: { time: 'asc' }
+      where: { 
+        userId: userId,
+        taskDate: {
+          gte: today,
+          lt: tomorrow
+        }
+      },
+      orderBy: { taskTime: 'asc' }
     });
     
-    if (tasks.length === 0) {
-      tasks = [
-        { id: "1", time: "08:00 AM", task: "Complete React Components", type: "Learning", duration: "45m", done: false },
-        { id: "2", time: "09:30 AM", task: "DSA Practice", type: "Coding", duration: "60m", done: false },
-        { id: "3", time: "11:00 AM", task: "API Integration Task", type: "Practice", duration: "45m", done: false }
-      ];
-    }
+    // Map to frontend expected format
+    var mappedTasks = tasks.map(function(task) {
+      return {
+        id: task.id,
+        taskTime: task.taskTime,
+        taskName: task.taskName,
+        taskType: task.taskType,
+        durationMinutes: task.durationMinutes,
+        isDone: task.isDone,
+        taskDate: task.taskDate
+      };
+    });
     
-    res.json({ tasks: tasks });
+    // If no tasks, return empty array (don't create mock tasks here)
+    res.json({ tasks: mappedTasks });
   } catch (err) {
+    console.error('Tasks error:', err);
     res.json({ tasks: [] });
   }
 });
@@ -63,24 +100,17 @@ router.get('/leaderboard', auth, async function(req, res) {
     for (var entry of entries) {
       var user = await prisma.user.findUnique({ where: { id: entry.userId } });
       result.push({
-        rank: result.length + 1,
+        rank: entry.rank || result.length + 1,
         name: user ? user.fullName : "Student",
         credits: entry.credits,
-        avatar: user ? user.avatarInitials : "S",
+        avatar: user ? user.avatarInitials : (user?.fullName?.charAt(0) || "S"),
         trend: entry.trend || "up"
       });
     }
     
-    if (result.length === 0) {
-      result = [
-        { rank: 1, name: "Rahul Kumar", credits: 1240, avatar: "RK", trend: "up" },
-        { rank: 2, name: "Priya Sharma", credits: 980, avatar: "PS", trend: "up" },
-        { rank: 3, name: "Ananya Patel", credits: 850, avatar: "AP", trend: "down" }
-      ];
-    }
-    
     res.json({ entries: result });
   } catch (err) {
+    console.error(err);
     res.json({ entries: [] });
   }
 });
